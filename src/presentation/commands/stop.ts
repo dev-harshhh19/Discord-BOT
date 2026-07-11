@@ -53,7 +53,8 @@ export const stopCommand: BotCommand = {
       filter: (btn: ButtonInteraction) => btn.user.id === interaction.user.id,
     });
 
-    collector.on('collect', async (btn: ButtonInteraction) => {
+    collector.on('collect', (btn: ButtonInteraction) => {
+      void (async (): Promise<void> => {
       if (!checkButtonPermission(btn, PermissionLevel.ADMIN)) {
         await btn.reply({ content: 'You do not have permission to confirm this.', flags: 64 });
         return;
@@ -87,19 +88,22 @@ export const stopCommand: BotCommand = {
       }
 
       collector.stop();
+      })();
     });
 
-    collector.on('end', async (_collected, reason) => {
-      if (reason === 'time') {
-        try {
-          await interaction.editReply({
-            embeds: [buildErrorEmbed('Stop confirmation timed out. No action taken.')],
-            components: [],
-          });
-        } catch {
-          // Message may have already been edited
+    collector.on('end', (_collected, reason) => {
+      void (async (): Promise<void> => {
+        if (reason === 'time') {
+          try {
+            await interaction.editReply({
+              embeds: [buildErrorEmbed('Stop confirmation timed out. No action taken.')],
+              components: [],
+            });
+          } catch {
+            // Message may have already been edited
+          }
         }
-      }
+      })();
     });
   },
 };

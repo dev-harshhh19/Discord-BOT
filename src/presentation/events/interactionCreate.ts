@@ -1,7 +1,5 @@
 import {
   Interaction,
-  ChatInputCommandInteraction,
-  ButtonInteraction,
 } from 'discord.js';
 import { ServiceContainer, BotCommand, PermissionLevel, BUTTON_IDS, ServerState } from '../../types';
 import { checkButtonPermission } from '../../utils/permissions';
@@ -23,7 +21,7 @@ export function createInteractionHandler(
       }
 
       try {
-        await cmd.execute(interaction as ChatInputCommandInteraction, services);
+        await cmd.execute(interaction, services);
       } catch (err) {
         logger.error(`Error in command /${interaction.commandName}: ${String(err)}`);
         const errorEmbed = buildErrorEmbed('An internal error occurred. Please try again later.');
@@ -38,7 +36,7 @@ export function createInteractionHandler(
 
     // ── Button Interactions ───────────────────────────────────────────────────
     if (interaction.isButton()) {
-      const btn = interaction as ButtonInteraction;
+      const btn = interaction;
 
       try {
         switch (btn.customId) {

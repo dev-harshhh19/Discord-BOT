@@ -4,7 +4,7 @@ import { Browser, Page } from 'puppeteer';
 import { IAternosService, ServerState, QueueInfo } from '../../types';
 import { config } from '../../config/env';
 import { logger } from '../logger/WinstonLogger';
-import { ATERNOS_SELECTORS, ATERNOS_URLS, PUPPETEER_TIMING } from '../../config/selectors';
+import { ATERNOS_SELECTORS, PUPPETEER_TIMING } from '../../config/selectors';
 import { AternosError } from '../../utils/errors';
 
 puppeteer.use(StealthPlugin());
@@ -93,7 +93,7 @@ export class PuppeteerAternosService implements IAternosService {
           path: '/',
         });
       } catch (err) {
-        logger.warn(`Failed to set ATERNOS_SERVER cookie: ${err}`);
+        logger.warn(`Failed to set ATERNOS_SERVER cookie: ${String(err)}`);
       }
     }
     
@@ -107,7 +107,7 @@ export class PuppeteerAternosService implements IAternosService {
         });
         logger.debug('Injected ATERNOS_SESSION cookie.');
       } catch (err) {
-        logger.warn(`Failed to set ATERNOS_SESSION cookie: ${err}`);
+        logger.warn(`Failed to set ATERNOS_SESSION cookie: ${String(err)}`);
       }
     }
 
@@ -207,7 +207,7 @@ export class PuppeteerAternosService implements IAternosService {
       await page.click('#start');
       logger.info('Clicked #start button.');
     } catch (err) {
-      logger.error(`Failed to click #start button: ${err}`);
+      logger.error(`Failed to click #start button: ${String(err)}`);
       throw new Error('Failed to find or click the Aternos Start button. The UI might have changed.');
     }
 
@@ -248,7 +248,7 @@ export class PuppeteerAternosService implements IAternosService {
       await page.click('#stop');
       logger.info('Clicked #stop button.');
     } catch (err) {
-      logger.error(`Failed to click #stop button: ${err}`);
+      logger.error(`Failed to click #stop button: ${String(err)}`);
       throw new Error('Failed to find or click the Aternos Stop button.');
     }
   }
@@ -275,14 +275,14 @@ export class PuppeteerAternosService implements IAternosService {
       logger.info('Clicked #confirm button (Queue confirmed!).');
       return true;
     } catch (err) {
-      logger.debug(`Could not click #confirm button (maybe it's not present yet): ${err}`);
+      logger.debug(`Could not click #confirm button (maybe it's not present yet): ${String(err)}`);
       return false;
     }
   }
 
   /** Create a fresh browser session, authenticated to Aternos */
   private async createBrowserSession(): Promise<[Browser, Page]> {
-    const browser = await (puppeteer as typeof puppeteer).launch({
+    const browser = await (puppeteer).launch({
       headless: config.PUPPETEER_HEADLESS,
       userDataDir: './aternos-session',
       args: [

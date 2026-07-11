@@ -36,14 +36,14 @@ export async function onReady(
 
   // Start the background polling engine
   const monitor = new StatusMonitor(services, client);
-  services.forcePoll = () => monitor.forcePoll();
+  services.forcePoll = (): void => monitor.forcePoll();
   
   // Initialize persistent browser session before starting monitor
   if (services.aternos.init) {
     try {
       await services.aternos.init();
     } catch (err) {
-      logger.error(`Initial Aternos browser session failed to start: ${err}`);
+      logger.error(`Initial Aternos browser session failed to start: ${String(err)}`);
     }
   }
   

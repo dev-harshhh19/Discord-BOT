@@ -80,7 +80,10 @@ client.once(Events.ClientReady, () => {
   void onReady(client, commands, services);
 });
 
-client.on(Events.InteractionCreate, createInteractionHandler(commands, services));
+const handler = createInteractionHandler(commands, services);
+client.on(Events.InteractionCreate, (...args) => {
+  void handler(...args);
+});
 
 // ─── Global Error Handlers ────────────────────────────────────────────────────
 
