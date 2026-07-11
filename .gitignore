@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables - NEVER commit these
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Puppeteer cache
+.cache/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Local Dev Data
+aternos-session/
+test-aternos.js
+aternos-dom.html
