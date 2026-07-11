@@ -301,7 +301,7 @@ export class PuppeteerAternosService implements IAternosService {
     // Log browser console and errors to the terminal
     page.on('console', (msg) => {
       const type = msg.type();
-      if (type === 'error' || type === 'warning' || type === 'info') {
+      if (type === 'error' || type === 'warn' || type === 'info') {
         logger.debug(`[Browser UI] ${type.toUpperCase()}: ${msg.text()}`);
       }
     });
