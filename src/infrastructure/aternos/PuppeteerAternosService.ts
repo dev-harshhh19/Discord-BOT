@@ -275,7 +275,24 @@ export class PuppeteerAternosService implements IAternosService {
       logger.info('Clicked #confirm button (Queue confirmed!).');
       return true;
     } catch (err) {
-      logger.debug(`Could not click #confirm button (maybe it's not present yet): ${String(err)}`);
+      logger.debug(`Could not click #confirm button, attempting AJAX fallback...`);
+      try {
+        const serverId = config.ATERNOS_SERVER_URL.split('/').pop() || '';
+        const ajaxConfirmed = await page.evaluate(async (sid) => {
+          // @ts-expect-error window.TOKEN and window.SEC are injected by Aternos
+          if (typeof window.TOKEN !== 'string' || typeof window.SEC !== 'string') return false;
+          // @ts-expect-error
+          const res = await fetch(`/ajax/server/confirm-queue?SEC=${window.SEC}&TOKEN=${window.TOKEN}&SERVER=${sid}`);
+          return res.ok;
+        }, serverId);
+
+        if (ajaxConfirmed) {
+          logger.info('Queue confirmed via AJAX request!');
+          return true;
+        }
+      } catch (e) {
+        logger.debug(`AJAX fallback failed: ${String(e)}`);
+      }
       return false;
     }
   }

@@ -6,7 +6,7 @@ import { buildDashboardEmbed, buildNotificationEmbed } from '../presentation/com
 import { buildDashboardButtons } from '../presentation/components/buttons';
 import { MinecraftQueryError } from '../utils/errors';
 
-const QUEUE_POLL_INTERVAL_MS = 15_000;   // 15s when queueing
+const QUEUE_POLL_INTERVAL_MS = 120_000;  // 2 minutes when queueing
 const NORMAL_POLL_INTERVAL_MS = config.POLL_INTERVAL_SECONDS * 1000;
 
 export class StatusMonitor {
@@ -127,8 +127,8 @@ export class StatusMonitor {
       const tenMins = 10 * 60 * 1000;
 
       if (timeInQueueMs > tenMins) {
-        if (this.queueRestartCount < 3) {
-          logger.warn(`Queue stuck > 10m (Restart ${this.queueRestartCount + 1}/3). Triggering restart cycle...`);
+        if (this.queueRestartCount < 2) {
+          logger.warn(`Queue stuck > 10m (Restart ${this.queueRestartCount + 1}/2). Triggering restart cycle...`);
           try {
             await this.services.aternos.stopServer();
             // Wait 5 seconds for Aternos to process stop
