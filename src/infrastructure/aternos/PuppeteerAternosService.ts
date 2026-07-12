@@ -281,7 +281,7 @@ export class PuppeteerAternosService implements IAternosService {
         const ajaxConfirmed = await page.evaluate(async (sid) => {
           // @ts-expect-error window.TOKEN and window.SEC are injected by Aternos
           if (typeof window.TOKEN !== 'string' || typeof window.SEC !== 'string') return false;
-          // @ts-expect-error
+          // @ts-expect-error fetching aternos specific ajax
           const res = await fetch(`/ajax/server/confirm-queue?SEC=${window.SEC}&TOKEN=${window.TOKEN}&SERVER=${sid}`);
           return res.ok;
         }, serverId);
