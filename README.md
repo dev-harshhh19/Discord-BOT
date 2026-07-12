@@ -35,24 +35,8 @@ To run this bot natively on an Android device without cloud hosting, follow the 
 [Read the Termux Installation Guide (TERMUX_GUIDE.md)](./TERMUX_GUIDE.md)
 
 ### Standard Deployment (PC / Server)
-
-1. Clone the repository:
-```bash
-git clone https://github.com/dev-harshhh19/Discord-BOT.git
-cd Discord-BOT
-npm install
-```
-
-2. Configure environment variables:
-```bash
-cp .env.example .env
-```
-Populate the `.env` file with your Discord Application credentials and Aternos session details.
-
-3. Start the application:
-```bash
-npm run dev
-```
+To deploy this bot on a standard PC, Linux Server, or Cloud VPS, refer to the primary setup documentation:
+[Read the Standard Setup Guide (SETUP.md)](./SETUP.md)
 
 ## Available Commands
 
