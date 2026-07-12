@@ -283,6 +283,7 @@ export class PuppeteerAternosService implements IAternosService {
   /** Create a fresh browser session, authenticated to Aternos */
   private async createBrowserSession(): Promise<[Browser, Page]> {
     const browser = await (puppeteer).launch({
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       headless: config.PUPPETEER_HEADLESS,
       userDataDir: './aternos-session',
       args: [
