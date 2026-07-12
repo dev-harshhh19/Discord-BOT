@@ -81,4 +81,4 @@ src/
 
 ## Disclaimer
 
-This software is provided for educational and administrative purposes. Use at your own discretion.
+**Disclaimer:** This project is in no way affiliated with, authorized, maintained, sponsored or endorsed by Aternos or any of its affiliates or subsidiaries. This is an independent and unofficial software provided for educational purposes only. Use at your own risk.
