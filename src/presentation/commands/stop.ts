@@ -1,20 +1,22 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, ComponentType, ButtonInteraction } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, MessageFlags } from 'discord.js';
 import { BotCommand, PermissionLevel, ServerState, ServiceContainer } from '../../types';
-import { checkCommandPermission, checkButtonPermission } from '../../utils/permissions';
-import {
-  buildStopConfirmEmbed,
-  buildStoppingEmbed,
-  buildErrorEmbed,
-} from '../components/embeds';
+import { buildStopConfirmEmbed, buildErrorEmbed } from '../components/embeds';
 import { buildStopConfirmButtons } from '../components/buttons';
-import { logger } from '../../infrastructure/logger/WinstonLogger';
+import { commandDescription } from './shared';
 
-const CONFIRM_TIMEOUT_MS = 30_000; // 30 seconds to confirm
-
+/**
+ * Presents the stop confirmation prompt.
+ *
+ * The confirmation buttons are handled by the central button registry in
+ * `events/buttonHandlers.ts`. This command previously also attached its own
+ * `createMessageComponentCollector`, so a single click was processed twice:
+ * `stopServer()` ran twice and the second reply failed with "interaction has
+ * already been acknowledged".
+ */
 export const stopCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName('stop')
-    .setDescription('Stop the TikdiSMP Minecraft server (requires confirmation)'),
+    .setDescription(commandDescription('Stop the {server} server (requires confirmation)')),
 
   requiredPermission: PermissionLevel.ADMIN,
 
@@ -22,88 +24,22 @@ export const stopCommand: BotCommand = {
     interaction: ChatInputCommandInteraction,
     services: ServiceContainer,
   ): Promise<void> {
-    if (!checkCommandPermission(interaction, PermissionLevel.ADMIN)) {
-      await interaction.reply({
-        embeds: [buildErrorEmbed('You do not have permission to stop the server.')],
-        flags: 64,
-      });
-      return;
-    }
-
     if (services.currentState !== ServerState.ONLINE) {
       await interaction.reply({
-        embeds: [buildErrorEmbed(`Server is not online (current state: ${services.currentState}).`)],
-        flags: 64,
+        embeds: [
+          buildErrorEmbed(
+            `The server is not online (current state: ${services.currentState.toLowerCase()}).`,
+          ),
+        ],
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
 
-    // Send confirmation prompt
     await interaction.reply({
       embeds: [buildStopConfirmEmbed()],
       components: [buildStopConfirmButtons()],
-      flags: 64,
-    });
-    const response = await interaction.fetchReply();
-
-    // Listen for button confirmation
-    const collector = response.createMessageComponentCollector({
-      componentType: ComponentType.Button,
-      time: CONFIRM_TIMEOUT_MS,
-      filter: (btn: ButtonInteraction) => btn.user.id === interaction.user.id,
-    });
-
-    collector.on('collect', (btn: ButtonInteraction) => {
-      void (async (): Promise<void> => {
-      if (!checkButtonPermission(btn, PermissionLevel.ADMIN)) {
-        await btn.reply({ content: 'You do not have permission to confirm this.', flags: 64 });
-        return;
-      }
-
-      if (btn.customId === 'stop_confirm') {
-        await btn.deferUpdate();
-
-        try {
-          await services.aternos.stopServer();
-          services.currentState = ServerState.STOPPING;
-
-          await interaction.editReply({
-            embeds: [buildStoppingEmbed()],
-            components: [],
-          });
-          logger.info(`/stop confirmed and executed by ${interaction.user.tag}`);
-        } catch (err) {
-          logger.error(`Failed to stop server: ${String(err)}`);
-          await interaction.editReply({
-            embeds: [buildErrorEmbed(`Failed to send stop command: ${String(err)}`)],
-            components: [],
-          });
-        }
-      } else if (btn.customId === 'stop_cancel') {
-        await btn.deferUpdate();
-        await interaction.editReply({
-          embeds: [buildErrorEmbed('Stop cancelled.')],
-          components: [],
-        });
-      }
-
-      collector.stop();
-      })();
-    });
-
-    collector.on('end', (_collected, reason) => {
-      void (async (): Promise<void> => {
-        if (reason === 'time') {
-          try {
-            await interaction.editReply({
-              embeds: [buildErrorEmbed('Stop confirmation timed out. No action taken.')],
-              components: [],
-            });
-          } catch {
-            // Message may have already been edited
-          }
-        }
-      })();
+      flags: MessageFlags.Ephemeral,
     });
   },
 };

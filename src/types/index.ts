@@ -55,11 +55,20 @@ export interface IAternosService {
   getQueueInfo(): Promise<QueueInfo | null>;
   startServer(): Promise<void>;
   stopServer(): Promise<void>;
+  restartServer?(): Promise<void>;
   confirmQueue(): Promise<boolean>;
+  /** Reloads the panel page to clear web cache and refresh state. */
+  reloadPanel?(): Promise<void>;
+  /** True when the underlying session is live; surfaced on the health endpoint. */
+  isReady?(): boolean;
+  /** Releases the browser. Called during graceful shutdown. */
+  close?(): Promise<void>;
 }
 
 export interface IMinecraftService {
   pingServer(): Promise<MinecraftStatus>;
+  /** Clears cached failure counts or ping debounces. */
+  reset?(): void;
 }
 
 // ─── Discord Command Interface ────────────────────────────────────────────────
@@ -95,6 +104,18 @@ export interface ServiceContainer {
   dashboardMessageId: string | null;
   /** Force the StatusMonitor to poll immediately */
   forcePoll?: () => void;
+  /**
+   * Clears all cache and debounces, reloads panel session, and re-evaluates live status.
+   */
+  forceRefresh?: () => Promise<{
+    state: ServerState;
+    mcStatus: MinecraftStatus | null;
+  }>;
+  /**
+   * Switch the StatusMonitor to fast launch polling with a single
+   * edited-in-place progress message, until the server is online.
+   */
+  beginLaunchWatch?: () => void;
 }
 
 // ─── Queue Info ───────────────────────────────────────────────────────────────
@@ -103,6 +124,17 @@ export interface QueueInfo {
   position: string;
   estimatedTime: string;
 }
+
+// ─── Launch Progress ──────────────────────────────────────────────────────────
+
+/** The stages a server launch moves through, in the order users see them. */
+export type LaunchPhase =
+  | 'booting'
+  | 'queueing'
+  | 'confirming'
+  | 'online'
+  | 'failed'
+  | 'stopped';
 
 // ─── Embed Color Palette (strict per PRD) ────────────────────────────────────
 

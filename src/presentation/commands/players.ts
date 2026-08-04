@@ -1,14 +1,14 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { BotCommand, PermissionLevel, ServiceContainer, ServerState } from '../../types';
-import { checkCommandPermission } from '../../utils/permissions';
 import { buildPlayersEmbed, buildErrorEmbed } from '../components/embeds';
 import { MinecraftQueryError } from '../../utils/errors';
 import { logger } from '../../infrastructure/logger/WinstonLogger';
+import { commandDescription } from './shared';
 
 export const playersCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName('players')
-    .setDescription('View players currently connected to TikdiSMP'),
+    .setDescription(commandDescription('View players currently connected to {server}')),
 
   requiredPermission: PermissionLevel.TRUSTED,
 
@@ -16,18 +16,9 @@ export const playersCommand: BotCommand = {
     interaction: ChatInputCommandInteraction,
     services: ServiceContainer,
   ): Promise<void> {
-    if (!checkCommandPermission(interaction, PermissionLevel.TRUSTED)) {
-      await interaction.reply({
-        embeds: [buildErrorEmbed('You do not have permission to view player data.')],
-        flags: 64,
-      });
-      return;
-    }
-
     if (services.currentState !== ServerState.ONLINE) {
       await interaction.reply({
-        embeds: [buildErrorEmbed('The server is not online. Player data is unavailable.')],
-        flags: 64,
+        embeds: [buildErrorEmbed('The server is not online, so player data is unavailable.')],
       });
       return;
     }
@@ -43,12 +34,12 @@ export const playersCommand: BotCommand = {
         await interaction.editReply({
           embeds: [buildErrorEmbed('Could not reach the Minecraft server. Try again shortly.')],
         });
-      } else {
-        logger.error(`/players unexpected error: ${String(err)}`);
-        await interaction.editReply({
-          embeds: [buildErrorEmbed('An unexpected error occurred while querying players.')],
-        });
+        return;
       }
+      logger.error(`/players failed unexpectedly: ${String(err)}`);
+      await interaction.editReply({
+        embeds: [buildErrorEmbed('An unexpected error occurred while querying players.')],
+      });
     }
   },
 };

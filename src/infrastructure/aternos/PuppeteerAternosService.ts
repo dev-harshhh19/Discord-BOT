@@ -1,472 +1,869 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import { Browser, Page } from 'puppeteer';
+import type { Browser, Page } from 'puppeteer';
 import { IAternosService, ServerState, QueueInfo } from '../../types';
 import { config } from '../../config/env';
 import { logger } from '../logger/WinstonLogger';
-import { ATERNOS_SELECTORS, PUPPETEER_TIMING } from '../../config/selectors';
+import {
+  ATERNOS_SELECTORS,
+  ATERNOS_URLS,
+  CONSENT_SELECTORS,
+  TYPING_DELAY_MS,
+} from '../../config/selectors';
 import { AternosError } from '../../utils/errors';
+import { Mutex } from '../../utils/mutex';
+import { sleep } from '../../utils/time';
+import { chromiumPathIsValid, describePlatform, platform } from '../../config/platform';
 
 puppeteer.use(StealthPlugin());
 
-/** Sleep helper — replaces deprecated page.waitForTimeout() */
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
-/** Navigate to a URL, tolerating the "frame detached" race condition that can occur on SPAs */
-async function safeGoto(page: Page, url: string): Promise<void> {
-  try {
-    await page.goto(url, {
-      waitUntil: 'domcontentloaded',
-      timeout: PUPPETEER_TIMING.NAVIGATION_TIMEOUT_MS,
-    });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('detached') || msg.includes('Execution context was destroyed')) {
-      logger.debug(`safeGoto caught navigation race on ${url}: ${msg}. Waiting for new frame...`);
-      // A client-side redirect interrupted the goto. Wait for it to finish so the frame attaches.
-      try {
-        await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 });
-      } catch {
-        // Ignore timeout
-      }
-    } else if (msg.includes('Navigation timeout')) {
-      logger.debug(`safeGoto timeout on ${url}. Proceeding anyway.`);
-    } else {
-      throw err;
-    }
-  }
+/** Errors that mean "the page navigated out from under us", not "something broke". */
+function isNavigationRace(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    msg.includes('detached') ||
+    msg.includes('Execution context was destroyed') ||
+    msg.includes('Target closed') ||
+    msg.includes('Session closed')
+  );
 }
 
+/**
+ * Drives the Aternos web panel through a single long-lived Puppeteer page.
+ *
+ * Concurrency: Puppeteer gives no safety guarantees for concurrent operations on
+ * one `Page`. The background poller and Discord interaction handlers both call
+ * into this service, so every public method acquires a mutex. Private helpers
+ * assume the lock is already held and must never take it themselves.
+ */
 export class PuppeteerAternosService implements IAternosService {
   private browser: Browser | null = null;
   private page: Page | null = null;
+  private readonly mutex = new Mutex();
+  private shuttingDown = false;
+  /** Set when Aternos has served a bot challenge, so callers get a real reason. */
+  private lastChallengeAt: Date | null = null;
+
+  // ─── Public API (mutex-guarded) ─────────────────────────────────────────────
 
   async init(): Promise<void> {
-    if (this.browser && this.page) return;
-    logger.info('Initializing persistent Aternos browser session...');
-    try {
-      const [browser, page] = await this.createBrowserSession();
-      this.browser = browser;
-      this.page = page;
-      await this.navigateToAternos(page);
-      logger.info('Persistent Aternos browser session is ready.');
-    } catch (err) {
-      logger.error(`Failed to initialize Aternos session: ${String(err)}`);
-      if (this.browser) await this.browser.close().catch(() => {});
-      this.browser = null;
-      this.page = null;
-      throw err;
-    }
-  }
-
-  private async getPage(): Promise<Page> {
-    if (!this.browser || !this.browser.isConnected() || !this.page || this.page.isClosed()) {
-      logger.warn('Browser or page disconnected, recreating session...');
-      if (this.browser) await this.browser.close().catch(() => {});
-      this.browser = null;
-      this.page = null;
-      await this.init();
-    }
-    return this.page!;
+    await this.mutex.runExclusive(async () => {
+      await this.ensureSession();
+    }, config.browser.operationTimeoutMs);
   }
 
   async authenticate(): Promise<void> {
     await this.init();
-    logger.info('Aternos authentication test completed.');
-  }
-
-  /** Navigate to Aternos and ensure we land on the server page, handling logins and redirects */
-  private async navigateToAternos(page: Page): Promise<void> {
-    logger.debug('Preparing to navigate to Aternos...');
-    
-    // 1. Navigate to the root domain first to ensure setCookie works without throwing TargetCloseError
-    await safeGoto(page, 'https://aternos.org/');
-
-    // 2. Force the server ID cookie and session cookie to avoid /go/ redirects and logins
-    const match = config.ATERNOS_SERVER_URL.match(/\/go\/([A-Za-z0-9_]+)/);
-    if (match) {
-      try {
-        await page.setCookie({
-          name: 'ATERNOS_SERVER',
-          value: match[1],
-          domain: 'aternos.org',
-          path: '/',
-        });
-      } catch (err) {
-        logger.warn(`Failed to set ATERNOS_SERVER cookie: ${String(err)}`);
-      }
-    }
-    
-    if (config.ATERNOS_SESSION) {
-      try {
-        await page.setCookie({
-          name: 'ATERNOS_SESSION',
-          value: config.ATERNOS_SESSION,
-          domain: 'aternos.org',
-          path: '/',
-        });
-        logger.debug('Injected ATERNOS_SESSION cookie.');
-      } catch (err) {
-        logger.warn(`Failed to set ATERNOS_SESSION cookie: ${String(err)}`);
-      }
-    }
-
-    // 3. Navigate directly to the server panel
-    await safeGoto(page, 'https://aternos.org/server/');
-    
-    // 3. Check if we got bounced to login
-    let currentUrl = '';
-    for (let i = 0; i < 15; i++) {
-      try {
-        currentUrl = page.url();
-        if (currentUrl) break; // Frame is attached
-      } catch {
-        await sleep(500);
-      }
-    }
-
-    if (currentUrl.includes('/login') || currentUrl.includes('/go/?target')) {
-      logger.debug('Login required. Redirecting to authentication flow...');
-      await this.authenticatePage(page);
-      
-      logger.debug('Authentication successful. Navigating back to target server URL...');
-      await safeGoto(page, 'https://aternos.org/server/');
-    }
-
-    // 4. Wait for the status label to appear to ensure Cloudflare/loading is done
-    try {
-      await page.waitForSelector(ATERNOS_SELECTORS.STATUS_LABEL, { timeout: 15000 });
-      logger.debug('Server panel loaded successfully.');
-    } catch {
-      logger.debug('Status label not found after navigation. Could be stuck on Turnstile.');
-    }
   }
 
   async getPanelStatus(): Promise<ServerState> {
-    const page = await this.getPage();
-    
-    // Ensure we are on the server page
-    if (!page.url().includes('/server')) {
-      await this.navigateToAternos(page);
-    }
-    
-    const text = await this.getStatusText(page);
-    const state = this.parseStatusText(text);
-    logger.info(`Aternos panel status: "${text}" -> ${state}`);
-    return state;
+    return this.mutex.runExclusive(async () => {
+      const page = await this.ensureSession();
+      await this.ensureOnPanel(page);
+      const text = await this.readStatusText(page);
+      const state = this.parseStatusText(text);
+      logger.debug(`Aternos panel status: "${text}" -> ${state}`);
+      return state;
+    }, config.browser.operationTimeoutMs);
   }
 
   async getQueueInfo(): Promise<QueueInfo | null> {
-    const page = await this.getPage();
-    if (!page.url().includes('/server')) {
-      return null;
-    }
+    return this.mutex.runExclusive(async () => {
+      const page = await this.ensureSession();
+      if (!this.isOnPanel(page)) return null;
 
-    try {
-      const position = await page.$eval(
-        ATERNOS_SELECTORS.QUEUE_POSITION,
-        (el: Element) => el.textContent?.trim() ?? '',
-      ).catch(() => '');
+      const position = await this.readText(page, ATERNOS_SELECTORS.QUEUE_POSITION);
+      const estimatedTime = await this.readText(page, ATERNOS_SELECTORS.QUEUE_TIME);
 
-      const estimatedTime = await page.$eval(
-        ATERNOS_SELECTORS.QUEUE_TIME,
-        (el: Element) => el.textContent?.trim() ?? '',
-      ).catch(() => '');
-
-      if (!position && !estimatedTime) return null;
-
+      if (position === '' && estimatedTime === '') return null;
       return { position, estimatedTime };
-    } catch {
-      return null;
-    }
+    }, config.browser.operationTimeoutMs);
   }
 
   async startServer(): Promise<void> {
-    const page = await this.getPage();
+    await this.mutex.runExclusive(async () => {
+      const page = await this.ensureSession();
+      await this.ensureOnPanel(page);
 
-    // Ensure we are on the server page
-    if (!page.url().includes('/server')) {
-      await this.navigateToAternos(page);
-    }
-
-    const statusText = await this.getStatusText(page);
-    const currentState = this.parseStatusText(statusText);
-
-    if (currentState === ServerState.ONLINE) {
-      logger.warn('startServer called but server is already ONLINE. Skipping.');
-      return;
-    }
-    if (currentState === ServerState.STARTING || currentState === ServerState.QUEUEING) {
-      logger.warn(`startServer called but server is already ${currentState}. Skipping.`);
-      return;
-    }
-    
-    logger.debug('Clicking the START button on the Aternos DOM...');
-    try {
-      await page.waitForSelector('#start', { timeout: 10000 });
-      await page.click('#start');
-      logger.info('Clicked #start button.');
-    } catch (err) {
-      logger.error(`Failed to click #start button: ${String(err)}`);
-      throw new Error('Failed to find or click the Aternos Start button. The UI might have changed.');
-    }
-
-    // Aternos often shows a EULA prompt after clicking start
-    try {
-      const acceptEulaBtn = await page.waitForSelector('.btn-success[id="accept-eula"], .btn-success[href*="eula"]', { timeout: 3000 });
-      if (acceptEulaBtn) {
-        await acceptEulaBtn.click();
-        logger.info('Accepted EULA prompt automatically.');
+      const currentState = this.parseStatusText(await this.readStatusText(page));
+      if (
+        currentState === ServerState.ONLINE ||
+        currentState === ServerState.STARTING ||
+        currentState === ServerState.QUEUEING
+      ) {
+        logger.warn(`startServer called while server is ${currentState}; skipping.`);
+        return;
       }
-    } catch {
-      // ignore, EULA prompt didn't appear
-    }
 
-    // Aternos often shows a notification prompt (Allow notifications -> continue without)
-    try {
-      const continueBtn = await page.waitForSelector('.btn-danger[onclick*="notification"]', { timeout: 3000 });
-      if (continueBtn) {
-        await continueBtn.click();
-        logger.info('Dismissed notifications prompt automatically.');
+      // Try DOM button first, fall back to AJAX endpoint
+      let started = false;
+      try {
+        await this.clickOrThrow(page, ATERNOS_SELECTORS.START_BUTTON, 'Start');
+        logger.info('Clicked the Aternos Start button.');
+        started = true;
+      } catch (err) {
+        logger.warn(`Start button click failed (${String(err)}); attempting AJAX start endpoint...`);
+        started = await this.executeAjaxAction(page, 'start');
+        if (!started) {
+          throw err;
+        }
       }
-    } catch {
-      // ignore
-    }
+
+      // Aternos may interrupt with an EULA acceptance or a notification prompt.
+      await this.clickIfPresent(page, ATERNOS_SELECTORS.EULA_ACCEPT, 'EULA acceptance', 3000);
+      await this.clickIfPresent(
+        page,
+        ATERNOS_SELECTORS.NOTIFICATION_DISMISS,
+        'notification prompt',
+        3000,
+      );
+    }, config.browser.operationTimeoutMs);
   }
 
   async stopServer(): Promise<void> {
-    const page = await this.getPage();
+    await this.mutex.runExclusive(async () => {
+      const page = await this.ensureSession();
+      await this.ensureOnPanel(page);
 
-    // Ensure we are on the server page
-    if (!page.url().includes('/server')) {
-      await this.navigateToAternos(page);
-    }
+      // Support stopping while booting/starting as well as normal stopping
+      let stopped = false;
+      const stopSelectors = [
+        ATERNOS_SELECTORS.STOP_BUTTON,
+        '#stop',
+        '.btn-stop',
+        '.btn-danger',
+        '[data-action="stop"]',
+      ];
 
-    logger.debug('Clicking the STOP button on the Aternos DOM...');
-    try {
-      await page.waitForSelector('#stop', { timeout: 10000 });
-      await page.click('#stop');
-      logger.info('Clicked #stop button.');
-    } catch (err) {
-      logger.error(`Failed to click #stop button: ${String(err)}`);
-      throw new Error('Failed to find or click the Aternos Stop button.');
-    }
+      for (const sel of stopSelectors) {
+        stopped = await this.clickIfPresent(page, sel, 'Stop button', 2000);
+        if (stopped) {
+          logger.info(`Clicked the Aternos Stop button (selector: ${sel}).`);
+          break;
+        }
+      }
+
+      if (!stopped) {
+        logger.info('Stop button not clickable in DOM; executing direct AJAX /ajax/server/stop...');
+        stopped = await this.executeAjaxAction(page, 'stop');
+      }
+
+      if (!stopped) {
+        throw new AternosError('Could not stop server: neither the Stop button nor AJAX endpoint succeeded.');
+      }
+    }, config.browser.operationTimeoutMs);
+  }
+
+  /**
+   * Restarts the server using Aternos AJAX restart endpoint or sequential fallback.
+   */
+  async restartServer(): Promise<void> {
+    await this.mutex.runExclusive(async () => {
+      const page = await this.ensureSession();
+      await this.ensureOnPanel(page);
+
+      logger.info('Executing Aternos server restart...');
+
+      // Try direct AJAX restart endpoint first
+      let restarted = await this.executeAjaxAction(page, 'restart');
+
+      if (!restarted) {
+        // Try restart button in DOM if present
+        const restartSelectors = ['#restart', '.btn-restart', '[data-action="restart"]'];
+        for (const sel of restartSelectors) {
+          restarted = await this.clickIfPresent(page, sel, 'Restart button', 2000);
+          if (restarted) {
+            logger.info(`Clicked the Aternos Restart button (selector: ${sel}).`);
+            break;
+          }
+        }
+      }
+
+      if (!restarted) {
+        logger.info('Direct restart not available; falling back to stop + start sequence.');
+        await this.executeAjaxAction(page, 'stop');
+        await sleep(5000);
+        await this.executeAjaxAction(page, 'start');
+      }
+
+      logger.info('Aternos server restart dispatched successfully.');
+    }, config.browser.operationTimeoutMs);
   }
 
   async confirmQueue(): Promise<boolean> {
-    const page = await this.getPage();
+    return this.mutex.runExclusive(async () => {
+      const page = await this.ensureSession();
+      await this.ensureOnPanel(page);
 
-    // Ensure we are on the server page
-    if (!page.url().includes('/server')) {
-      await this.navigateToAternos(page);
-    }
-
-    const statusText = await this.getStatusText(page);
-    const currentState = this.parseStatusText(statusText);
-    
-    // If we aren't starting or queuing, we probably don't need to confirm
-    if (currentState !== ServerState.STARTING && currentState !== ServerState.QUEUEING) {
-      return false;
-    }
-    logger.debug('Clicking the CONFIRM button on the Aternos DOM...');
-    try {
-      await page.waitForSelector('#confirm', { timeout: 5000 });
-      await page.click('#confirm');
-      logger.info('Clicked #confirm button (Queue confirmed!).');
-      return true;
-    } catch (err) {
-      logger.debug(`Could not click #confirm button, attempting AJAX fallback...`);
-      try {
-        const serverId = config.ATERNOS_SERVER_URL.split('/').pop() || '';
-        const ajaxConfirmed = await page.evaluate(async (sid) => {
-          // @ts-expect-error window.TOKEN and window.SEC are injected by Aternos
-          if (typeof window.TOKEN !== 'string' || typeof window.SEC !== 'string') return false;
-          // @ts-expect-error fetching aternos specific ajax
-          const res = await fetch(`/ajax/server/confirm-queue?SEC=${window.SEC}&TOKEN=${window.TOKEN}&SERVER=${sid}`);
-          return res.ok;
-        }, serverId);
-
-        if (ajaxConfirmed) {
-          logger.info('Queue confirmed via AJAX request!');
-          return true;
-        }
-      } catch (e) {
-        logger.debug(`AJAX fallback failed: ${String(e)}`);
+      const currentState = this.parseStatusText(await this.readStatusText(page));
+      if (currentState !== ServerState.STARTING && currentState !== ServerState.QUEUEING) {
+        return false;
       }
-      return false;
+
+      // Preferred path: the confirmation button rendered in the panel.
+      const clicked = await this.clickIfPresent(
+        page,
+        ATERNOS_SELECTORS.CONFIRM_BUTTON,
+        'queue confirmation',
+        5000,
+      );
+      if (clicked) {
+        logger.info('Queue confirmed via the panel button.');
+        return true;
+      }
+
+      // Fallback: call the same endpoint the panel's own JavaScript calls. The
+      // page supplies the CSRF pair (SEC/TOKEN) on `window`.
+      return this.confirmQueueViaAjax(page);
+    }, config.browser.operationTimeoutMs);
+  }
+
+  /**
+   * Reloads the Aternos panel webpage to flush cached DOM data and re-evaluate
+   * the live server status and queue position.
+   */
+  async reloadPanel(): Promise<void> {
+    await this.mutex.runExclusive(async () => {
+      const page = await this.ensureSession();
+      try {
+        logger.info('Reloading Aternos panel webpage to refresh state...');
+        await page.reload({
+          waitUntil: 'domcontentloaded',
+          timeout: config.browser.navigationTimeoutMs,
+        });
+        await this.dismissConsentBanners(page);
+        logger.info('Aternos panel webpage successfully reloaded.');
+      } catch (err) {
+        logger.warn(`Could not reload page directly (${String(err)}); navigating to panel instead.`);
+        await this.navigateToPanel(page);
+      }
+    }, config.browser.operationTimeoutMs);
+  }
+
+  /** True when a browser session is live. Used by the health endpoint. */
+  isReady(): boolean {
+    return (
+      this.browser !== null &&
+      this.browser.isConnected() &&
+      this.page !== null &&
+      !this.page.isClosed()
+    );
+  }
+
+  /** Timestamp of the most recent bot-challenge detection, if any. */
+  getLastChallengeAt(): Date | null {
+    return this.lastChallengeAt;
+  }
+
+  /**
+   * Closes the browser.
+   *
+   * Called from the shutdown handler. Leaving Chromium running orphans the
+   * process and leaves a lock file in the user-data directory, which makes the
+   * *next* start fail — the failure mode that most often strands Termux
+   * deployments after a crash.
+   */
+  async close(): Promise<void> {
+    if (this.shuttingDown) return;
+    this.shuttingDown = true;
+
+    const browser = this.browser;
+    this.browser = null;
+    this.page = null;
+
+    if (!browser) return;
+
+    try {
+      await Promise.race([browser.close(), sleep(10_000)]);
+      logger.info('Aternos browser session closed.');
+    } catch (err) {
+      logger.warn(`Error while closing the browser: ${String(err)}`);
+    }
+
+    // `browser.close()` can hang if the renderer is wedged; make sure the OS
+    // process is gone either way.
+    try {
+      const proc = browser.process();
+      if (proc && proc.exitCode === null && !proc.killed) {
+        proc.kill('SIGKILL');
+        logger.debug('Force-killed the lingering Chromium process.');
+      }
+    } catch {
+      // Nothing more we can do.
     }
   }
 
-  /** Create a fresh browser session, authenticated to Aternos */
-  private async createBrowserSession(): Promise<[Browser, Page]> {
-    const browser = await (puppeteer).launch({
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-      headless: config.PUPPETEER_HEADLESS,
-      userDataDir: './aternos-session',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--no-first-run',
-        '--remote-debugging-port=9222',
-        '--remote-debugging-address=0.0.0.0',
-        '--no-zygote',
-        '--single-process',
-      ],
-    });
+  // ─── Session lifecycle (lock held) ──────────────────────────────────────────
 
-    const page = await browser.newPage();
-    
-    // Log browser console and errors to the terminal
+  /** Returns a live page, creating or recreating the browser session as needed. */
+  private async ensureSession(): Promise<Page> {
+    if (this.shuttingDown) {
+      throw new AternosError('The Aternos browser session is shutting down.');
+    }
+
+    if (this.isReady()) return this.page as Page;
+
+    if (this.browser) {
+      logger.warn('Browser or page is no longer usable; recreating the session.');
+      const stale = this.browser;
+      this.browser = null;
+      this.page = null;
+      await stale.close().catch(() => undefined);
+    }
+
+    logger.info(`Launching Chromium (${describePlatform()})...`);
+
+    if (!chromiumPathIsValid(config.browser.executablePath)) {
+      logger.warn(
+        `PUPPETEER_EXECUTABLE_PATH points at "${String(config.browser.executablePath)}", ` +
+          'which does not exist. Puppeteer will fall back to its bundled build ' +
+          '(x64 only) and may fail on this machine.',
+      );
+    }
+
+    let browser: Browser;
+    try {
+      browser = await puppeteer.launch({
+        executablePath: config.browser.executablePath,
+        headless: config.browser.headless,
+        userDataDir: config.browser.userDataDir,
+        args: config.browser.args,
+        timeout: config.browser.navigationTimeoutMs,
+      });
+    } catch (err) {
+      throw new AternosError(this.explainLaunchFailure(err));
+    }
+
+    try {
+      const page = (await browser.pages())[0] ?? (await browser.newPage());
+      await this.configurePage(page);
+
+      this.browser = browser;
+      this.page = page;
+
+      browser.on('disconnected', () => {
+        if (!this.shuttingDown) {
+          logger.warn('Chromium disconnected unexpectedly; it will be relaunched on next use.');
+        }
+        this.browser = null;
+        this.page = null;
+      });
+
+      await this.navigateToPanel(page);
+      logger.info('Aternos browser session is ready.');
+      return page;
+    } catch (err) {
+      await browser.close().catch(() => undefined);
+      this.browser = null;
+      this.page = null;
+      throw err;
+    }
+  }
+
+  /** Turns Chromium launch failures into messages that name the actual fix. */
+  private explainLaunchFailure(err: unknown): string {
+    const msg = err instanceof Error ? err.message : String(err);
+
+    if (msg.includes('Could not find') || msg.includes('ENOENT')) {
+      const install = platform.isTermux
+        ? 'pkg install chromium'
+        : platform.isDocker
+          ? 'add chromium to your image'
+          : 'apt install chromium (or chromium-browser)';
+      return (
+        `Chromium could not be launched on ${platform.kind}/${platform.arch}. ` +
+        `Install a system Chromium (${install}) and set PUPPETEER_EXECUTABLE_PATH ` +
+        `to its full path. Original error: ${msg}`
+      );
+    }
+
+    if (msg.includes('Failed to move to new namespace') || msg.includes('No usable sandbox')) {
+      return (
+        'Chromium could not initialise its sandbox. Set PUPPETEER_NO_SANDBOX=true ' +
+        `if this host cannot provide user namespaces. Original error: ${msg}`
+      );
+    }
+
+    if (msg.includes('SingletonLock') || msg.includes('ProcessSingleton')) {
+      return (
+        `The browser profile at ${config.browser.userDataDir} is locked by another ` +
+        'process. Stop any other instance of the bot, or delete the SingletonLock ' +
+        `file in that directory. Original error: ${msg}`
+      );
+    }
+
+    return `Failed to launch Chromium: ${msg}`;
+  }
+
+  private async configurePage(page: Page): Promise<void> {
+    page.setDefaultTimeout(config.browser.selectorTimeoutMs);
+    page.setDefaultNavigationTimeout(config.browser.navigationTimeoutMs);
+
+    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setUserAgent(config.browser.userAgent);
+
+    await page.evaluateOnNewDocument(`
+      (function() {
+        try {
+          window.__name = window.__name || function(target) { return target; };
+          Object.defineProperty(navigator, 'webdriver', { get: function() { return undefined; } });
+          window.chrome = window.chrome || { runtime: {} };
+          Object.defineProperty(navigator, 'languages', { get: function() { return ['en-US', 'en']; } });
+          Object.defineProperty(navigator, 'plugins', { get: function() { return [1, 2, 3, 4, 5]; } });
+        } catch (e) {}
+      })();
+    `);
+
     page.on('console', (msg) => {
       const type = msg.type();
-      if (type === 'error' || type === 'warn' || type === 'info') {
-        logger.debug(`[Browser UI] ${type.toUpperCase()}: ${msg.text()}`);
+      if (type === 'error' || type === 'warn') {
+        logger.debug(`[browser] ${type}: ${msg.text()}`);
       }
     });
     page.on('pageerror', (err) => {
-      logger.error(`[Browser UI] Uncaught Exception: ${err.message}`);
+      logger.debug(`[browser] uncaught: ${err.message}`);
     });
-    page.on('requestfailed', (req) => {
-      logger.debug(`[Browser UI] Request Failed: ${req.url()} (${req.failure()?.errorText})`);
-    });
-    await page.setViewport({ width: 1280, height: 800 });
-    await page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-        '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    );
-
-    return [browser, page];
   }
 
-  /** Authenticate on the Aternos login page */
-  private async authenticatePage(page: Page): Promise<void> {
-    logger.info('Authenticating with Aternos...');
+  // ─── Navigation (lock held) ─────────────────────────────────────────────────
 
-    await this.dismissModals(page);
-
-    await page.waitForSelector(ATERNOS_SELECTORS.LOGIN_USERNAME, {
-      timeout: PUPPETEER_TIMING.SELECTOR_TIMEOUT_MS,
-    });
-
-    await page.click(ATERNOS_SELECTORS.LOGIN_USERNAME, { clickCount: 3 });
-    await page.type(ATERNOS_SELECTORS.LOGIN_USERNAME, config.ATERNOS_USERNAME, {
-      delay: PUPPETEER_TIMING.TYPING_DELAY_MS,
-    });
-
-    await page.click(ATERNOS_SELECTORS.LOGIN_PASSWORD, { clickCount: 3 });
-    await page.type(ATERNOS_SELECTORS.LOGIN_PASSWORD, config.ATERNOS_PASSWORD, {
-      delay: PUPPETEER_TIMING.TYPING_DELAY_MS,
-    });
-
-    await page.click(ATERNOS_SELECTORS.LOGIN_BUTTON);
-
-    // Wait for navigation or state change — Aternos often uses SPA routing or has CAPTCHAs
+  private isOnPanel(page: Page): boolean {
     try {
-      await page.waitForFunction(
-        () => {
-          return window.location.href.includes('/server') || 
-                 document.querySelector('.login-error') !== null;
-        },
-        { timeout: PUPPETEER_TIMING.NAVIGATION_TIMEOUT_MS }
-      );
-    } catch (err: unknown) {
-      const msg = String(err);
-      if (!msg.includes('Execution context was destroyed') && !msg.includes('detached')) {
-        throw new Error(`Aternos login timed out. A CAPTCHA might be blocking it: ${msg}`);
-      }
-      logger.debug('Login navigation triggered context destruction (success)');
+      const url = page.url();
+      return url.includes('/server') && !url.includes('/servers');
+    } catch {
+      return false;
     }
+  }
 
+  private async ensureOnPanel(page: Page): Promise<void> {
+    if (!this.isOnPanel(page)) {
+      await this.navigateToPanel(page);
+    } else {
+      await this.selectServerIfOnServerList(page);
+    }
+  }
+
+  /** Navigate to a URL, tolerating client-side redirects that detach the frame. */
+  private async safeGoto(page: Page, url: string): Promise<void> {
     try {
-      const loginError = await page.$(ATERNOS_SELECTORS.LOGIN_ERROR);
-      if (loginError) {
-        const isVisible = await loginError.isIntersectingViewport();
-        if (isVisible) {
-          throw new AternosError(
-            'Aternos login failed: Invalid credentials or account locked. ' +
-              'Manual intervention required.',
-          );
-        }
-      }
-    } catch (err: unknown) {
-      const msg = String(err);
-      if (msg.includes('detached') || msg.includes('Execution context was destroyed')) {
-        // Frame detached means the browser is navigating away from the login page.
-        // This is a success state!
-        logger.debug('Login frame detached (successful navigation expected).');
-        await sleep(1500); // Give it time to load the next page
+      await page.goto(url, {
+        waitUntil: 'domcontentloaded',
+        timeout: config.browser.navigationTimeoutMs,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (isNavigationRace(err)) {
+        logger.debug(`Navigation race on ${url} (${msg}); waiting for the new document.`);
+        await page
+          .waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10_000 })
+          .catch(() => undefined);
+      } else if (msg.includes('Navigation timeout')) {
+        logger.debug(`Navigation to ${url} timed out; continuing with whatever loaded.`);
       } else {
         throw err;
       }
     }
-
-    logger.info('Aternos authentication successful.');
   }
 
-  /** Dismiss promotional modals, cookie banners, and EULA confirmations */
-  private async dismissModals(page: Page): Promise<void> {
-    const modalSelectors = [
-      ATERNOS_SELECTORS.MODAL_CONFIRM_BUTTON,
-      ATERNOS_SELECTORS.CLOSE_MODAL_BUTTON,
-      '.fc-cta-consent', // Google CMP cookie banner
-      '.fc-primary-button', // Google CMP alternative
-      '.cc-btn.cc-allow', // Cookie consent
-    ];
+  /** If the account lands on the multi-server list (/servers/), clicks the target server card. */
+  private async selectServerIfOnServerList(page: Page): Promise<void> {
+    try {
+      const url = page.url();
+      if (!url.includes('/servers')) return;
 
-    for (const selector of modalSelectors) {
-      try {
-        const element = await page.$(selector);
-        if (element) {
-          const visible = await element.isIntersectingViewport();
-          if (visible) {
-            await element.click();
-            await sleep(500);
-            logger.debug(`Dismissed modal using selector: ${selector}`);
-          }
+      logger.info('Account has multiple servers; selecting target server card.');
+      const targetId = config.aternos.serverId;
+
+      await page.waitForSelector('.server-body, .servercard', { timeout: 10_000 });
+
+      const clicked = await page.evaluate((id) => {
+        let el: Element | null = null;
+        if (id) {
+          el =
+            document.querySelector(`[data-id="${id}"]`) ||
+            document.querySelector(`.servercard[data-id="${id}"]`) ||
+            document.querySelector(`.server-body[data-id="${id}"]`);
         }
-      } catch {
-        // Modal not present — continue
+        if (!el && id) {
+          const cards = Array.from(document.querySelectorAll('.server-body, .servercard'));
+          el = cards.find((c) => (c as HTMLElement).innerText && (c as HTMLElement).innerText.includes(id)) ?? null;
+        }
+        if (!el) {
+          el = document.querySelector('.server-body, .servercard');
+        }
+        if (el && 'click' in el && typeof (el as HTMLElement).click === 'function') {
+          (el as HTMLElement).click();
+          return true;
+        }
+        return false;
+      }, targetId);
+
+      if (clicked) {
+        logger.debug('Clicked server card, waiting for server panel to load.');
+        await page
+          .waitForSelector(
+            `${ATERNOS_SELECTORS.START_BUTTON}, ${ATERNOS_SELECTORS.STOP_BUTTON}, ${ATERNOS_SELECTORS.RESTART_BUTTON}, ${ATERNOS_SELECTORS.STATUS_LABEL}`,
+            { timeout: config.browser.selectorTimeoutMs },
+          )
+          .catch(() => undefined);
+      }
+    } catch (err) {
+      logger.warn(`Error selecting server from list: ${String(err)}`);
+    }
+  }
+
+  /** Lands on the server panel, authenticating and seeding cookies as required. */
+  private async navigateToPanel(page: Page): Promise<void> {
+    // Cookies can only be set once an aternos.org document is loaded.
+    await this.safeGoto(page, ATERNOS_URLS.ORIGIN);
+    await this.dismissConsentBanners(page);
+    await this.seedCookies(page);
+
+    const target =
+      config.aternos.serverId !== '' ? config.aternos.serverUrl : ATERNOS_URLS.SERVER_PANEL;
+    await this.safeGoto(page, target);
+
+    if (this.needsLogin(page)) {
+      logger.info('Aternos session is not authenticated; logging in.');
+      await this.performLogin(page);
+      await this.safeGoto(page, target);
+    }
+
+    await this.selectServerIfOnServerList(page);
+
+    // Give Cloudflare / the SPA a chance to render the status label or control buttons.
+    try {
+      await page.waitForSelector(
+        `${ATERNOS_SELECTORS.STATUS_LABEL}, ${ATERNOS_SELECTORS.START_BUTTON}, ${ATERNOS_SELECTORS.STOP_BUTTON}, ${ATERNOS_SELECTORS.RESTART_BUTTON}`,
+        {
+          timeout: config.browser.selectorTimeoutMs,
+        },
+      );
+      this.lastChallengeAt = null;
+      logger.debug('Aternos server panel loaded.');
+    } catch {
+      if (await this.detectChallenge(page)) {
+        this.lastChallengeAt = new Date();
+        logger.warn(
+          'Aternos served a bot challenge (Cloudflare/Turnstile). Status reads will fail ' +
+            'until it clears. On a headless VPS, running headful under Xvfb usually helps.',
+        );
+      } else {
+        logger.warn('Aternos status label did not appear; the panel may have changed.');
       }
     }
   }
 
-  /** Read the status label text from the Aternos panel DOM */
-  private async getStatusText(page: Page, retries = 5): Promise<string> {
-    for (let i = 0; i < retries; i++) {
+  private needsLogin(page: Page): boolean {
+    let url = '';
+    try {
+      url = page.url();
+    } catch {
+      return false;
+    }
+    return url.includes('/login') || url.includes('/go/?target') || url.endsWith('/go/');
+  }
+
+  private async seedCookies(page: Page): Promise<void> {
+    const cookies: { name: string; value: string; domain: string; path: string }[] = [];
+
+    if (config.aternos.serverId !== '') {
+      cookies.push({
+        name: 'ATERNOS_SERVER',
+        value: config.aternos.serverId,
+        domain: '.aternos.org',
+        path: '/',
+      });
+    }
+    if (config.aternos.session !== undefined) {
+      cookies.push({
+        name: 'ATERNOS_SESSION',
+        value: config.aternos.session,
+        domain: '.aternos.org',
+        path: '/',
+      });
+    }
+
+    for (const cookie of cookies) {
+      try {
+        await page.setCookie(cookie);
+        logger.debug(`Seeded cookie ${cookie.name}.`);
+      } catch (err) {
+        logger.warn(`Failed to set the ${cookie.name} cookie: ${String(err)}`);
+      }
+    }
+  }
+
+  /** Detects an interstitial bot challenge in place of the expected panel. */
+  private async detectChallenge(page: Page): Promise<boolean> {
+    try {
+      return await page.evaluate(() => {
+        const title = document.title || '';
+        if (title.includes('Just a moment') || title.includes('Attention Required')) return true;
+        const markers = [
+          '#challenge-running',
+          '#cf-challenge-running',
+          'iframe[src*="challenges.cloudflare.com"]',
+          '.cf-turnstile',
+        ];
+        return markers.some((selector) => document.querySelector(selector) !== null);
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  private async performLogin(page: Page): Promise<void> {
+    await this.dismissConsentBanners(page);
+
+    try {
+      await page.waitForSelector(ATERNOS_SELECTORS.LOGIN_USERNAME, {
+        timeout: config.browser.selectorTimeoutMs,
+      });
+    } catch {
+      if (await this.detectChallenge(page)) {
+        this.lastChallengeAt = new Date();
+        throw new AternosError(
+          'The Aternos login page is behind a bot challenge. Set ATERNOS_SESSION with a ' +
+            'cookie captured from a real browser session, or run headful under Xvfb.',
+        );
+      }
+      throw new AternosError('The Aternos login form did not load; the page layout may have changed.');
+    }
+
+    await page.click(ATERNOS_SELECTORS.LOGIN_USERNAME, { clickCount: 3 });
+    await page.type(ATERNOS_SELECTORS.LOGIN_USERNAME, config.aternos.username, {
+      delay: TYPING_DELAY_MS,
+    });
+
+    await page.click(ATERNOS_SELECTORS.LOGIN_PASSWORD, { clickCount: 3 });
+    await page.type(ATERNOS_SELECTORS.LOGIN_PASSWORD, config.aternos.password, {
+      delay: TYPING_DELAY_MS,
+    });
+
+    await page.click(ATERNOS_SELECTORS.LOGIN_BUTTON);
+
+    try {
+      await page.waitForFunction(
+        (errorSelector: string) =>
+          window.location.href.includes('/server') ||
+          document.querySelector(errorSelector) !== null,
+        { timeout: config.browser.navigationTimeoutMs },
+        ATERNOS_SELECTORS.LOGIN_ERROR,
+      );
+    } catch (err) {
+      if (!isNavigationRace(err)) {
+        throw new AternosError(
+          `The Aternos login did not complete in time; a CAPTCHA may be blocking it: ${String(err)}`,
+        );
+      }
+      // A destroyed execution context here means the redirect fired — success.
+      await sleep(1500);
+    }
+
+    // A visible error element means the credentials were rejected. A detached
+    // frame at this point means we already navigated away, which is success.
+    try {
+      const loginError = await page.$(ATERNOS_SELECTORS.LOGIN_ERROR);
+      if (loginError && (await loginError.isIntersectingViewport())) {
+        throw new AternosError(
+          'Aternos rejected the login. Check ATERNOS_USERNAME and ATERNOS_PASSWORD, ' +
+            'and confirm the account is not locked.',
+        );
+      }
+    } catch (err) {
+      if (err instanceof AternosError) throw err;
+      if (!isNavigationRace(err)) throw err;
+      await sleep(1500);
+    }
+
+    logger.info('Authenticated with Aternos.');
+  }
+
+  private async dismissConsentBanners(page: Page): Promise<void> {
+    const selectors = [
+      ...CONSENT_SELECTORS,
+      ATERNOS_SELECTORS.CLOSE_MODAL_BUTTON,
+    ];
+
+    for (const selector of selectors) {
+      try {
+        const element = await page.$(selector);
+        if (element && (await element.isIntersectingViewport())) {
+          await element.click();
+          await sleep(400);
+          logger.debug(`Dismissed a banner matching ${selector}.`);
+        }
+      } catch {
+        // Banner absent or already gone.
+      }
+    }
+  }
+
+  // ─── DOM reads and clicks (lock held) ───────────────────────────────────────
+
+  private async readText(page: Page, selector: string): Promise<string> {
+    try {
+      return await page.$eval(selector, (el: Element) => el.textContent?.trim() ?? '');
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * Reads the status label, retrying only for navigation races.
+   *
+   * With the mutex in place these should be rare (they were previously caused by
+   * the poller and command handlers sharing the page), so the retry budget is
+   * small.
+   */
+  private async readStatusText(page: Page, retries = 3): Promise<string> {
+    for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         await page.waitForSelector(ATERNOS_SELECTORS.STATUS_LABEL, {
-          timeout: PUPPETEER_TIMING.SELECTOR_TIMEOUT_MS,
+          timeout: config.browser.selectorTimeoutMs,
         });
         const text = await page.$eval(
           ATERNOS_SELECTORS.STATUS_LABEL,
           (el: Element) => el.textContent ?? '',
         );
         return text.trim().toLowerCase();
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if ((msg.includes('detached') || msg.includes('Execution context was destroyed')) && i < retries - 1) {
-          logger.debug(`Retrying status text read due to frame detach (${i + 1}/${retries})...`);
-          await sleep(2500);
+      } catch (err) {
+        if (isNavigationRace(err) && attempt < retries) {
+          logger.debug(`Status read hit a navigation race (${attempt}/${retries}); retrying.`);
+          await sleep(1500);
           continue;
         }
-        logger.warn(`Could not read Aternos status label: ${msg}`);
+        logger.warn(`Could not read the Aternos status label: ${String(err)}`);
         return 'unknown';
       }
     }
     return 'unknown';
   }
 
-  /** Map Aternos DOM status text to the internal ServerState enum */
+  private async clickOrThrow(page: Page, selector: string, label: string): Promise<void> {
+    try {
+      await page.waitForSelector(selector, { timeout: config.browser.selectorTimeoutMs });
+      await page.click(selector);
+    } catch (err) {
+      throw new AternosError(
+        `Could not click the Aternos ${label} button. The panel layout may have changed — ` +
+          `override the selector with SELECTOR_${label.toUpperCase()}_BUTTON in .env. ` +
+          `(${String(err)})`,
+      );
+    }
+  }
+
+  private async clickIfPresent(
+    page: Page,
+    selector: string,
+    label: string,
+    timeoutMs: number,
+  ): Promise<boolean> {
+    try {
+      const element = await page.waitForSelector(selector, { timeout: timeoutMs });
+      if (!element) return false;
+      await element.click();
+      logger.debug(`Handled the ${label}.`);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Executes a native Aternos AJAX action (/ajax/server/start, /ajax/server/stop, /ajax/server/restart)
+   * using the session tokens (SEC, TOKEN) and SERVER id available on window.
+   */
+  private async executeAjaxAction(page: Page, action: 'start' | 'stop' | 'restart'): Promise<boolean> {
+    try {
+      const success = await page.evaluate(async (act: string, serverId: string) => {
+        const w = window as unknown as { TOKEN?: unknown; SEC?: unknown; aternos?: { server?: { id?: string } } };
+        if (typeof w.TOKEN !== 'string' || typeof w.SEC !== 'string') return false;
+
+        const params = new URLSearchParams({ SEC: w.SEC, TOKEN: w.TOKEN });
+        const targetServer = serverId || (typeof w.aternos?.server?.id === 'string' ? w.aternos.server.id : '');
+        if (targetServer !== '') params.set('SERVER', targetServer);
+
+        const res = await fetch(`/ajax/server/${act}?${params.toString()}`, {
+          credentials: 'include',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        });
+        return res.ok;
+      }, action, config.aternos.serverId);
+
+      if (success) {
+        logger.info(`Aternos AJAX action /ajax/server/${action} accepted.`);
+        return true;
+      }
+      logger.debug(`Aternos AJAX action /ajax/server/${action} was not accepted.`);
+      return false;
+    } catch (err) {
+      logger.debug(`AJAX action /ajax/server/${action} failed: ${String(err)}`);
+      return false;
+    }
+  }
+
+  private async confirmQueueViaAjax(page: Page): Promise<boolean> {
+    try {
+      const confirmed = await page.evaluate(async (serverId: string) => {
+        const w = window as unknown as { TOKEN?: unknown; SEC?: unknown };
+        if (typeof w.TOKEN !== 'string' || typeof w.SEC !== 'string') return false;
+
+        const params = new URLSearchParams({ SEC: w.SEC, TOKEN: w.TOKEN });
+        if (serverId !== '') params.set('SERVER', serverId);
+
+        const res = await fetch(`/ajax/server/confirm-queue?${params.toString()}`, {
+          credentials: 'include',
+        });
+        return res.ok;
+      }, config.aternos.serverId);
+
+      if (confirmed) {
+        logger.info('Queue confirmed via the Aternos AJAX endpoint.');
+        return true;
+      }
+      logger.debug('AJAX queue confirmation was not accepted.');
+      return false;
+    } catch (err) {
+      logger.debug(`AJAX queue confirmation failed: ${String(err)}`);
+      return false;
+    }
+  }
+
+  /** Maps the panel's status text onto the internal state enum. */
   private parseStatusText(text: string): ServerState {
-    if (text.includes('online')) return ServerState.ONLINE;
-    if (text.includes('starting') || text.includes('loading') || text.includes('preparing'))
+    const t = text.trim().toLowerCase();
+    if (!t) return ServerState.UNKNOWN;
+
+    // Check transient / active transition states first
+    if (
+      t.includes('starting') ||
+      t.includes('loading') ||
+      t.includes('preparing') ||
+      t.includes('booting')
+    ) {
       return ServerState.STARTING;
-    if (text.includes('queue') || text.includes('waiting')) return ServerState.QUEUEING;
-    if (text.includes('stopping') || text.includes('saving')) return ServerState.STOPPING;
-    if (text.includes('offline')) return ServerState.OFFLINE;
-    if (text.includes('crash')) return ServerState.CRASHED;
+    }
+    if (t.includes('stopping') || t.includes('saving')) {
+      return ServerState.STOPPING;
+    }
+    if (t.includes('queue') || t.includes('waiting') || t.includes('in queue')) {
+      return ServerState.QUEUEING;
+    }
+    if (t.includes('crash')) {
+      return ServerState.CRASHED;
+    }
+    if (t.includes('offline') || t.includes('stopped')) {
+      return ServerState.OFFLINE;
+    }
+    // Only match online if it explicitly contains the whole word online and no starting/offline flags
+    if (/\bonline\b/.test(t) || t === 'online') {
+      return ServerState.ONLINE;
+    }
     return ServerState.UNKNOWN;
   }
 }

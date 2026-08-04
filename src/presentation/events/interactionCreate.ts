@@ -1,158 +1,128 @@
 import {
+  ButtonInteraction,
+  ChatInputCommandInteraction,
   Interaction,
+  MessageFlags,
+  RepliableInteraction,
 } from 'discord.js';
-import { ServiceContainer, BotCommand, PermissionLevel, BUTTON_IDS, ServerState } from '../../types';
-import { checkButtonPermission } from '../../utils/permissions';
-import { buildErrorEmbed, buildStartingEmbed, buildStoppingEmbed, buildStatusEmbed, buildStopConfirmEmbed } from '../components/embeds';
-import { buildStopConfirmButtons, buildDashboardButtons } from '../components/buttons';
+import { BotCommand, PermissionLevel, ServiceContainer } from '../../types';
+import { hasPermission, permissionLevelName } from '../../utils/permissions';
+import { buildErrorEmbed } from '../components/embeds';
 import { logger } from '../../infrastructure/logger/WinstonLogger';
+import { config } from '../../config/env';
+import { buttonHandlers } from './buttonHandlers';
 
+/**
+ * Interaction router.
+ *
+ * Permission enforcement lives here, not inside individual commands. Each
+ * command declares `requiredPermission` and the router is the only thing that
+ * reads it. Previously the field was declared but never checked, and every
+ * command re-implemented its own gate — so a command that forgot to would have
+ * been open to everyone.
+ */
 export function createInteractionHandler(
   commands: Map<string, BotCommand>,
   services: ServiceContainer,
 ): (interaction: Interaction) => Promise<void> {
   return async (interaction: Interaction): Promise<void> => {
-    // ── Slash Commands ────────────────────────────────────────────────────────
     if (interaction.isChatInputCommand()) {
-      const cmd = commands.get(interaction.commandName);
-      if (!cmd) {
-        logger.warn(`Unknown slash command received: /${interaction.commandName}`);
-        return;
-      }
-
-      try {
-        await cmd.execute(interaction, services);
-      } catch (err) {
-        logger.error(`Error in command /${interaction.commandName}: ${String(err)}`);
-        const errorEmbed = buildErrorEmbed('An internal error occurred. Please try again later.');
-        if (interaction.replied || interaction.deferred) {
-          await interaction.editReply({ embeds: [errorEmbed] });
-        } else {
-          await interaction.reply({ embeds: [errorEmbed], flags: 64 });
-        }
-      }
-      return;
-    }
-
-    // ── Button Interactions ───────────────────────────────────────────────────
-    if (interaction.isButton()) {
-      const btn = interaction;
-
-      try {
-        switch (btn.customId) {
-          case BUTTON_IDS.DASHBOARD_START: {
-            if (!checkButtonPermission(btn, PermissionLevel.TRUSTED)) {
-              await btn.reply({
-                embeds: [buildErrorEmbed('You need Trusted Member access to start the server.')],
-                flags: 64,
-              });
-              return;
-            }
-
-            if (
-              services.currentState === ServerState.ONLINE ||
-              services.currentState === ServerState.STARTING ||
-              services.currentState === ServerState.QUEUEING
-            ) {
-              await btn.reply({
-                embeds: [buildErrorEmbed(`Server is already ${services.currentState}.`)],
-                flags: 64,
-              });
-              return;
-            }
-
-            await btn.deferReply({ flags: 64 });
-            try {
-              await services.aternos.startServer();
-              services.currentState = ServerState.STARTING;
-              await btn.editReply({ embeds: [buildStartingEmbed()] });
-              logger.info(`Dashboard Start button clicked by ${btn.user.tag}`);
-            } catch (err) {
-              await btn.editReply({ embeds: [buildErrorEmbed(String(err))] });
-            }
-            break;
-          }
-
-          case BUTTON_IDS.DASHBOARD_STOP: {
-            if (!checkButtonPermission(btn, PermissionLevel.ADMIN)) {
-              await btn.reply({
-                embeds: [buildErrorEmbed('You need Admin access to stop the server.')],
-                flags: 64,
-              });
-              return;
-            }
-
-            // Show confirmation
-            await btn.reply({
-              embeds: [buildStopConfirmEmbed()],
-              components: [buildStopConfirmButtons()],
-              flags: 64,
-            });
-            break;
-          }
-
-          case BUTTON_IDS.DASHBOARD_REFRESH: {
-            await btn.deferReply({ flags: 64 });
-            await btn.editReply({
-              embeds: [buildStatusEmbed(
-                services.currentState,
-                services.lastMinecraftStatus,
-                services.serverOnlineAt,
-              )],
-            });
-            break;
-          }
-
-          case BUTTON_IDS.STOP_CONFIRM: {
-            if (!checkButtonPermission(btn, PermissionLevel.ADMIN)) {
-              await btn.reply({
-                embeds: [buildErrorEmbed('You do not have permission to confirm this.')],
-                flags: 64,
-              });
-              return;
-            }
-
-            await btn.deferUpdate();
-            try {
-              await services.aternos.stopServer();
-              services.currentState = ServerState.STOPPING;
-              await btn.editReply({
-                embeds: [buildStoppingEmbed()],
-                components: [buildDashboardButtons(false)],
-              });
-              logger.info(`Stop confirmed via button by ${btn.user.tag}`);
-            } catch (err) {
-              await btn.editReply({
-                embeds: [buildErrorEmbed(`Stop failed: ${String(err)}`)],
-                components: [],
-              });
-            }
-            break;
-          }
-
-          case BUTTON_IDS.STOP_CANCEL: {
-            await btn.deferUpdate();
-            await btn.editReply({
-              embeds: [buildErrorEmbed('Stop cancelled.')],
-              components: [],
-            });
-            break;
-          }
-
-          default:
-            logger.warn(`Unknown button interaction: ${btn.customId}`);
-        }
-      } catch (err) {
-        logger.error(`Error handling button ${btn.customId}: ${String(err)}`);
-        // If we haven't replied yet, try to send an error message, but swallow any further API errors
-        try {
-          if (!btn.replied && !btn.deferred) {
-            await btn.reply({ embeds: [buildErrorEmbed('An internal error occurred.')], flags: 64 });
-          }
-        } catch (replyErr) {
-          logger.debug(`Could not send error reply for button ${btn.customId}: ${String(replyErr)}`);
-        }
-      }
+      await routeCommand(interaction, commands, services);
+    } else if (interaction.isButton()) {
+      await routeButton(interaction, services);
     }
   };
+}
+
+async function routeCommand(
+  interaction: ChatInputCommandInteraction,
+  commands: Map<string, BotCommand>,
+  services: ServiceContainer,
+): Promise<void> {
+  const command = commands.get(interaction.commandName);
+  if (!command) {
+    logger.warn(`Received an unregistered slash command: /${interaction.commandName}`);
+    return;
+  }
+
+  if (!(await enforceGuild(interaction))) return;
+  if (!(await enforcePermission(interaction, command.requiredPermission))) return;
+
+  try {
+    await command.execute(interaction, services);
+  } catch (err) {
+    logger.error(`/${interaction.commandName} failed: ${String(err)}`);
+    await respondWithError(interaction, 'An internal error occurred. Please try again.');
+  }
+}
+
+async function routeButton(
+  interaction: ButtonInteraction,
+  services: ServiceContainer,
+): Promise<void> {
+  const handler = buttonHandlers.get(interaction.customId);
+  if (!handler) {
+    logger.warn(`Received an unknown button interaction: ${interaction.customId}`);
+    return;
+  }
+
+  if (!(await enforceGuild(interaction))) return;
+  if (!(await enforcePermission(interaction, handler.requiredPermission))) return;
+
+  try {
+    await handler.execute(interaction, services);
+  } catch (err) {
+    logger.error(`Button ${interaction.customId} failed: ${String(err)}`);
+    await respondWithError(interaction, 'An internal error occurred.');
+  }
+}
+
+/**
+ * Rejects interactions from outside the configured guild.
+ *
+ * Commands are registered per-guild, but buttons live on messages and a bot
+ * invited to a second server could otherwise be driven from it.
+ */
+async function enforceGuild(interaction: RepliableInteraction): Promise<boolean> {
+  if (config.discord.guildId === null) return true;
+  if (interaction.guildId === config.discord.guildId) return true;
+
+  logger.warn(
+    `Ignoring an interaction from guild ${String(interaction.guildId)} ` +
+      `(expected ${config.discord.guildId}).`,
+  );
+  await respondWithError(interaction, 'This bot is not configured for use here.');
+  return false;
+}
+
+async function enforcePermission(
+  interaction: RepliableInteraction,
+  required: PermissionLevel,
+): Promise<boolean> {
+  if (required === PermissionLevel.EVERYONE) return true;
+  if (hasPermission(interaction, required)) return true;
+
+  await respondWithError(
+    interaction,
+    `This action requires **${permissionLevelName(required)}** access or higher.`,
+  );
+  return false;
+}
+
+/** Sends an error embed whether or not the interaction was already deferred. */
+async function respondWithError(
+  interaction: RepliableInteraction,
+  message: string,
+): Promise<void> {
+  try {
+    const embeds = [buildErrorEmbed(message)];
+    if (interaction.replied || interaction.deferred) {
+      await interaction.editReply({ embeds });
+    } else {
+      await interaction.reply({ embeds, flags: MessageFlags.Ephemeral });
+    }
+  } catch (err) {
+    // The interaction token may have expired, or the reply may already be used.
+    logger.debug(`Could not deliver an error response: ${String(err)}`);
+  }
 }

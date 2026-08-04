@@ -1,15 +1,17 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { BotCommand, PermissionLevel, ServiceContainer, ServerState } from '../../types';
-import { checkCommandPermission } from '../../utils/permissions';
 import { buildRestartProgressEmbed, buildErrorEmbed } from '../components/embeds';
 import { logger } from '../../infrastructure/logger/WinstonLogger';
+import { sleep } from '../../utils/time';
+import { describeError, commandDescription } from './shared';
 
-const RESTART_SETTLE_MS = 8_000; // Wait between stop and start
+/** Grace period between the stop request and the start request. */
+const RESTART_SETTLE_MS = 8_000;
 
 export const restartCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName('restart')
-    .setDescription('Restart the TikdiSMP server (Owner only)'),
+    .setDescription(commandDescription('Restart the {server} server (owner only)')),
 
   requiredPermission: PermissionLevel.OWNER,
 
@@ -17,42 +19,40 @@ export const restartCommand: BotCommand = {
     interaction: ChatInputCommandInteraction,
     services: ServiceContainer,
   ): Promise<void> {
-    if (!checkCommandPermission(interaction, PermissionLevel.OWNER)) {
-      await interaction.reply({
-        embeds: [buildErrorEmbed('Only the server owner can restart the server.')],
-        flags: 64,
-      });
-      return;
-    }
-
     await interaction.deferReply();
 
     try {
-      // Phase 1: Stop
       await interaction.editReply({ embeds: [buildRestartProgressEmbed('stopping')] });
-      logger.info(`/restart Phase 1 (stop) initiated by ${interaction.user.tag}`);
+      logger.info(`/restart initiated by ${interaction.user.tag}.`);
 
-      if (services.currentState === ServerState.ONLINE) {
-        await services.aternos.stopServer();
-        services.currentState = ServerState.STOPPING;
+      if (services.aternos.restartServer) {
+        await services.aternos.restartServer();
+      } else {
+        if (
+          services.currentState === ServerState.ONLINE ||
+          services.currentState === ServerState.STARTING
+        ) {
+          await services.aternos.stopServer();
+          services.currentState = ServerState.STOPPING;
+          await sleep(RESTART_SETTLE_MS);
+        }
+
+        await interaction.editReply({ embeds: [buildRestartProgressEmbed('starting')] });
+        logger.info('/restart phase 2 (start) initiated.');
+
+        await services.aternos.startServer();
       }
 
-      // Wait for server to settle before starting
-      await new Promise((resolve) => setTimeout(resolve, RESTART_SETTLE_MS));
-
-      // Phase 2: Start
-      await interaction.editReply({ embeds: [buildRestartProgressEmbed('starting')] });
-      logger.info('/restart Phase 2 (start) initiated');
-
-      await services.aternos.startServer();
       services.currentState = ServerState.STARTING;
       services.serverOnlineAt = null;
 
-      logger.info('/restart completed successfully');
+      logger.info('/restart completed.');
+      services.beginLaunchWatch?.();
+      await interaction.editReply({ embeds: [buildRestartProgressEmbed('starting')] });
     } catch (err) {
       logger.error(`/restart failed: ${String(err)}`);
       await interaction.editReply({
-        embeds: [buildErrorEmbed(`Restart failed: ${String(err)}`)],
+        embeds: [buildErrorEmbed(`Restart failed: ${describeError(err)}`)],
       });
     }
   },

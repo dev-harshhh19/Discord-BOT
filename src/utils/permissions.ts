@@ -1,69 +1,52 @@
-import { ChatInputCommandInteraction, ButtonInteraction, GuildMember } from 'discord.js';
+import { GuildMember, Interaction } from 'discord.js';
 import { PermissionLevel } from '../types';
 import { config } from '../config/env';
+import { registrationStore } from '../infrastructure/registration/RegistrationStore';
 
 /**
- * Resolves the permission level of a Discord user based on:
- * 1. Owner user IDs (highest precedence)
- * 2. Admin user IDs or role IDs
- * 3. Trusted user IDs or role IDs
- * 4. Everyone (default)
+ * Resolves a user's permission level, highest match wins:
+ *   Owner → Admin (user id or role) → Trusted (user id, role, or registration)
+ *   → Everyone
+ *
+ * Self-registration (`/register`) grants Trusted only while the feature is
+ * enabled, so setting REGISTRATION_ENABLED=false instantly revokes the access
+ * it granted without touching the stored registry.
  */
-export function getUserPermissionLevel(member: GuildMember | null, userId: string): PermissionLevel {
-  // Owner check
-  if (config.OWNER_USER_IDS.includes(userId)) {
-    return PermissionLevel.OWNER;
-  }
+export function getUserPermissionLevel(
+  member: GuildMember | null,
+  userId: string,
+): PermissionLevel {
+  const { ownerUserIds, adminUserIds, adminRoleIds, minecraftRoleIds, trustedUserIds, trustedRoleIds } =
+    config.permissions;
 
-  // Admin check — by user ID or role
-  if (config.ADMIN_USER_IDS.includes(userId)) {
-    return PermissionLevel.ADMIN;
-  }
-  if (member && config.ADMIN_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId))) {
-    return PermissionLevel.ADMIN;
-  }
+  const hasRole = (roleIds: string[]): boolean =>
+    member !== null && roleIds.some((roleId) => member.roles.cache.has(roleId));
 
-  // Trusted check — by user ID or role
-  if (config.TRUSTED_USER_IDS.includes(userId)) {
-    return PermissionLevel.TRUSTED;
-  }
-  if (member && config.TRUSTED_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId))) {
-    return PermissionLevel.TRUSTED;
-  }
+  if (ownerUserIds.includes(userId)) return PermissionLevel.OWNER;
+  if (adminUserIds.includes(userId) || hasRole(adminRoleIds) || hasRole(minecraftRoleIds)) return PermissionLevel.ADMIN;
+  if (trustedUserIds.includes(userId) || hasRole(trustedRoleIds)) return PermissionLevel.TRUSTED;
+  if (config.registration.enabled && registrationStore.has(userId)) return PermissionLevel.TRUSTED;
 
   return PermissionLevel.EVERYONE;
 }
 
 /**
- * Checks if the user in a ChatInputCommandInteraction has the required permission level.
- * Returns true if authorized, false otherwise.
+ * Resolves the permission level for any interaction type.
+ *
+ * `interaction.member` is only a `GuildMember` inside a guild; in DMs it is
+ * null, which correctly limits role-derived permissions to guild context.
  */
-export function checkCommandPermission(
-  interaction: ChatInputCommandInteraction,
-  required: PermissionLevel,
-): boolean {
+export function resolvePermissionLevel(interaction: Interaction): PermissionLevel {
   const member = interaction.member instanceof GuildMember ? interaction.member : null;
-  const userId = interaction.user.id;
-  const userLevel = getUserPermissionLevel(member, userId);
-  return userLevel >= required;
+  return getUserPermissionLevel(member, interaction.user.id);
 }
 
-/**
- * Checks if the user in a ButtonInteraction has the required permission level.
- */
-export function checkButtonPermission(
-  interaction: ButtonInteraction,
-  required: PermissionLevel,
-): boolean {
-  const member = interaction.member instanceof GuildMember ? interaction.member : null;
-  const userId = interaction.user.id;
-  const userLevel = getUserPermissionLevel(member, userId);
-  return userLevel >= required;
+/** True when the interacting user meets `required`. */
+export function hasPermission(interaction: Interaction, required: PermissionLevel): boolean {
+  return resolvePermissionLevel(interaction) >= required;
 }
 
-/**
- * Returns a human-readable name for a permission level.
- */
+/** Human-readable name for a permission level. */
 export function permissionLevelName(level: PermissionLevel): string {
   switch (level) {
     case PermissionLevel.OWNER:
@@ -73,6 +56,7 @@ export function permissionLevelName(level: PermissionLevel): string {
     case PermissionLevel.TRUSTED:
       return 'Trusted Member';
     case PermissionLevel.EVERYONE:
+    default:
       return 'Everyone';
   }
 }
