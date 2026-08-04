@@ -74,7 +74,7 @@ RUN groupadd -g 10001 botgroup && \
 USER botuser
 
 # Expose Web Dashboard & Telemetry port
-EXPOSE 3000
+EXPOSE 5176
 
 # Use dumb-init to properly handle UNIX process signals and reap zombie Chromium forks
 ENTRYPOINT ["dumb-init", "--"]

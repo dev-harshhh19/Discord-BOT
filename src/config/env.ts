@@ -324,7 +324,7 @@ export const config: AppConfig = {
 
   web: {
     enabled: optBool('WEB_ENABLED', true),
-    port: optInt('PORT', 3000, 0, 65535),
+    port: optInt('PORT', 5176, 0, 65535),
     host: optStr('WEB_HOST', '0.0.0.0'),
     adminPassword: optStr('DASHBOARD_ADMIN_PASSWORD', optStr('WEB_ADMIN_PASSWORD', optStr('WEB_TOKEN', ''))),
     token: optStr('DASHBOARD_ADMIN_PASSWORD', optStr('WEB_ADMIN_PASSWORD', optStr('WEB_TOKEN', ''))),
@@ -359,16 +359,16 @@ if (
 if (config.browser.executablePath === undefined && (platform.isTermux || process.arch !== 'x64')) {
   warnings.push(
     `No system Chromium found on ${platform.kind}/${process.arch}. ` +
-      "Puppeteer's bundled build is x64-only; install Chromium " +
-      `(${platform.isTermux ? 'pkg install chromium' : 'apt install chromium'}) ` +
-      'or set PUPPETEER_EXECUTABLE_PATH.',
+    "Puppeteer's bundled build is x64-only; install Chromium " +
+    `(${platform.isTermux ? 'pkg install chromium' : 'apt install chromium'}) ` +
+    'or set PUPPETEER_EXECUTABLE_PATH.',
   );
 }
 
 if (platform.isTermux && config.browser.headless && !process.env['DISPLAY']) {
   warnings.push(
     'Running headless on Termux. If Aternos blocks the session, install xvfb and ' +
-      'launch with: xvfb-run -a npm start (with PUPPETEER_HEADLESS=false).',
+    'launch with: xvfb-run -a npm start (with PUPPETEER_HEADLESS=false).',
   );
 }
 
@@ -379,25 +379,25 @@ if (config.web.enabled) {
     warnings.push(
       boundPublicly
         ? 'WEB_TOKEN is not set while WEB_HOST binds every interface. The dashboard API ' +
-          'can start and stop the server, so the write endpoints have been DISABLED. ' +
-          'Set WEB_TOKEN to enable them.'
+        'can start and stop the server, so the write endpoints have been DISABLED. ' +
+        'Set WEB_TOKEN to enable them.'
         : 'WEB_TOKEN is not set, so the dashboard API write endpoints are disabled. ' +
-          'The UI will be read-only until a token is configured.',
+        'The UI will be read-only until a token is configured.',
     );
   }
 
   if (boundPublicly) {
     warnings.push(
       `The dashboard is bound to ${config.web.host}:${config.web.port} and reachable from ` +
-        'the network. Put it behind a reverse proxy with TLS, or set WEB_HOST=127.0.0.1 ' +
-        'and reach it over an SSH tunnel.',
+      'the network. Put it behind a reverse proxy with TLS, or set WEB_HOST=127.0.0.1 ' +
+      'and reach it over an SSH tunnel.',
     );
   }
 
   if (config.web.exposeMembers) {
     warnings.push(
       'WEB_EXPOSE_MEMBERS is enabled. This requires the privileged "Server Members Intent" ' +
-        'to be switched on in the Discord Developer Portal, or the bot will fail to log in.',
+      'to be switched on in the Discord Developer Portal, or the bot will fail to log in.',
     );
   }
 }
@@ -405,8 +405,8 @@ if (config.web.enabled) {
 if (remoteDebuggingPort > 0) {
   warnings.push(
     `Chromium remote debugging is enabled on 127.0.0.1:${remoteDebuggingPort}. ` +
-      'Anyone with local access can take over the authenticated Aternos session. ' +
-      'Disable it in production by unsetting PUPPETEER_REMOTE_DEBUGGING_PORT.',
+    'Anyone with local access can take over the authenticated Aternos session. ' +
+    'Disable it in production by unsetting PUPPETEER_REMOTE_DEBUGGING_PORT.',
   );
 }
 

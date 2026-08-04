@@ -16,7 +16,7 @@ services:
     env_file:
       - .env
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-5176}:5176"
     volumes:
       # Persist browser session, login cookies, and whitelists across restarts
       - ./data:/app/data

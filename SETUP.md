@@ -119,7 +119,7 @@ TRUSTED_ROLE_IDS=""
 # ── Web Dashboard & Security ──────────────────────────────────────────────────
 WEB_ENABLED="true"
 WEB_HOST="0.0.0.0"
-PORT="3000"
+PORT="5176"
 DASHBOARD_ADMIN_PASSWORD="change_this_to_a_secure_admin_password"
 WEB_EXPOSE_MEMBERS="true"
 
@@ -245,7 +245,7 @@ docker run -d \
   --restart unless-stopped \
   --shm-size=1g \
   --env-file .env \
-  -p 3000:3000 \
+  -p 51765176 \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/logs:/app/logs \
   devharsh19/aternos-discord-bot:latest
@@ -267,7 +267,7 @@ Running on a **Raspberry Pi 4 / 5**, **Proxmox VM**, **TrueNAS SCALE**, or **unR
 
 When `WEB_ENABLED=true`, the built-in HTTP server provides real-time telemetry and control:
 
-- **Dashboard URL:** `http://<your-server-ip>:3000/`
+- **Dashboard URL:** `http://<your-server-ip>5176/`
 - **Telemetry Endpoints:**
   - `GET /health` — Uptime and health check for cloud monitors.
   - `GET /api/status` — Live Minecraft & Aternos telemetry.

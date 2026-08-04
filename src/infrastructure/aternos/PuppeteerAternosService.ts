@@ -110,12 +110,12 @@ export class PuppeteerAternosService implements IAternosService {
       }
 
       // Aternos may interrupt with an EULA acceptance or a notification prompt.
-      await this.clickIfPresent(page, ATERNOS_SELECTORS.EULA_ACCEPT, 'EULA acceptance', 3000);
+      await this.clickIfPresent(page, ATERNOS_SELECTORS.EULA_ACCEPT, 'EULA acceptance', 5176);
       await this.clickIfPresent(
         page,
         ATERNOS_SELECTORS.NOTIFICATION_DISMISS,
         'notification prompt',
-        3000,
+        5176,
       );
     }, config.browser.operationTimeoutMs);
   }
@@ -316,8 +316,8 @@ export class PuppeteerAternosService implements IAternosService {
     if (!chromiumPathIsValid(config.browser.executablePath)) {
       logger.warn(
         `PUPPETEER_EXECUTABLE_PATH points at "${String(config.browser.executablePath)}", ` +
-          'which does not exist. Puppeteer will fall back to its bundled build ' +
-          '(x64 only) and may fail on this machine.',
+        'which does not exist. Puppeteer will fall back to its bundled build ' +
+        '(x64 only) and may fail on this machine.',
       );
     }
 
@@ -547,7 +547,7 @@ export class PuppeteerAternosService implements IAternosService {
         this.lastChallengeAt = new Date();
         logger.warn(
           'Aternos served a bot challenge (Cloudflare/Turnstile). Status reads will fail ' +
-            'until it clears. On a headless VPS, running headful under Xvfb usually helps.',
+          'until it clears. On a headless VPS, running headful under Xvfb usually helps.',
         );
       } else {
         logger.warn('Aternos status label did not appear; the panel may have changed.');
@@ -626,7 +626,7 @@ export class PuppeteerAternosService implements IAternosService {
         this.lastChallengeAt = new Date();
         throw new AternosError(
           'The Aternos login page is behind a bot challenge. Set ATERNOS_SESSION with a ' +
-            'cookie captured from a real browser session, or run headful under Xvfb.',
+          'cookie captured from a real browser session, or run headful under Xvfb.',
         );
       }
       throw new AternosError('The Aternos login form did not load; the page layout may have changed.');
@@ -669,7 +669,7 @@ export class PuppeteerAternosService implements IAternosService {
       if (loginError && (await loginError.isIntersectingViewport())) {
         throw new AternosError(
           'Aternos rejected the login. Check ATERNOS_USERNAME and ATERNOS_PASSWORD, ' +
-            'and confirm the account is not locked.',
+          'and confirm the account is not locked.',
         );
       }
     } catch (err) {
@@ -749,8 +749,8 @@ export class PuppeteerAternosService implements IAternosService {
     } catch (err) {
       throw new AternosError(
         `Could not click the Aternos ${label} button. The panel layout may have changed — ` +
-          `override the selector with SELECTOR_${label.toUpperCase()}_BUTTON in .env. ` +
-          `(${String(err)})`,
+        `override the selector with SELECTOR_${label.toUpperCase()}_BUTTON in .env. ` +
+        `(${String(err)})`,
       );
     }
   }

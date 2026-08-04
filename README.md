@@ -168,7 +168,7 @@ Or build manually with standard Docker:
 docker build -t aternos-discord-bot .
 docker run -d --name aternos-bot \
   --env-file .env \
-  -p 3000:3000 \
+  -p 51765176 \
   -v ./data:/app/data \
   -v ./logs:/app/logs \
   --shm-size="1gb" \
@@ -179,7 +179,7 @@ docker run -d --name aternos-bot \
 
 ## Web Dashboard & Telemetry
 
-When `WEB_ENABLED=true` is set, the bot exposes a lightweight, modern web interface (default: `http://localhost:3000`):
+When `WEB_ENABLED=true` is set, the bot exposes a lightweight, modern web interface (default: `http://localhost5176`):
 
 - **Real-Time Telemetry:** Live ping latency, player counts, CPU/RAM usage, and queue progress.
 - **Server Controls:** Trigger start, stop, and restart directly from the web browser.
