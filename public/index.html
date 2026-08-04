@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TikdiSMP Server Telemetry & Bot Hub</title>
+  <meta name="description"
+    content="TikdiSMP Minecraft Server Management Dashboard, Discord Bot Telemetry, and Role Control Hub." />
+
+  <!-- Inter Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <!-- Mature Static Stylesheet System -->
+  <link rel="stylesheet" href="/css/theme.css?v=2.0" />
+  <link rel="stylesheet" href="/css/components.css?v=2.0" />
+</head>
+
+<body>
+  <div class="app-container">
+    <!-- Reactive Navbar & Header Component -->
+    <div id="navbar-container"></div>
+
+    <!-- Main View Component Mounts -->
+    <main id="main-content">
+      <div id="tab-overview" class="tab-content active"></div>
+      <div id="tab-members" class="tab-content"></div>
+      <div id="tab-access" class="tab-content"></div>
+      <div id="tab-logs" class="tab-content"></div>
+      <div id="tab-dev" class="tab-content"></div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div>&bull; TikdiSMP Server Manager &bull;</div>
+    </footer>
+  </div>
+
+  <!-- Toast Notification Mount -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Modular Component Application Bootstrap -->
+  <script type="module" src="/js/app.js?v=2.0"></script>
+</body>
+
+</html>

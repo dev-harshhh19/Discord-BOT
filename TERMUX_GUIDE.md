@@ -60,6 +60,9 @@ Prevent Puppeteer from downloading its incompatible Chromium binary:
 
 ```bash
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install
+
+# Build the TypeScript project
+npm run build
 ```
 
 ---

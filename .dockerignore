@@ -1,10 +1,12 @@
 node_modules
 dist
 .env
-.env.local
+.env.*
+!.env.example
 logs
+data
 *.log
 .git
 .gitignore
-README.md
 *.md
+aternos-session

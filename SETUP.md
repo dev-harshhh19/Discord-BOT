@@ -1,569 +1,308 @@
-# TikdiSMP Bot — Complete Setup Guide
+<div align="center">
 
-This guide walks you through every single step required to get the bot running — from creating your Discord application to starting the bot for the first time. Follow each section in order.
+# TikdiSMP Bot — Complete Setup & Deployment Guide
+
+**Comprehensive step-by-step documentation for deploying the Aternos Discord Bot across Local Workstations, Cloud VPS (x86 & ARM64), Multi-Platform Docker, Home Servers, and Termux.**
+
+Developed by **[Harshad Nikam](https://harshadnikam.me)** • [@dev-harshhh19](https://github.com/dev-harshhh19)
+
+</div>
 
 ---
 
 ## Table of Contents
 
-1. [Prerequisites](#1-prerequisites)
-2. [Create the Discord Application & Bot](#2-create-the-discord-application--bot)
-3. [Invite the Bot to Your Server](#3-invite-the-bot-to-your-server)
-4. [Get Your Discord IDs](#4-get-your-discord-ids)
-5. [Set Up the Aternos Server URL](#5-set-up-the-aternos-server-url)
-6. [Configure the .env File](#6-configure-the-env-file)
-7. [Run the Bot](#7-run-the-bot)
-8. [First Launch — What to Expect](#8-first-launch--what-to-expect)
-9. [Deploying to a VPS (Production)](#9-deploying-to-a-vps-production)
-10. [Deploying with Docker](#10-deploying-with-docker)
-11. [Troubleshooting](#11-troubleshooting)
+1. [Prerequisites & System Requirements](#1-prerequisites--system-requirements)
+2. [Discord Bot Setup & Gateway Configuration](#2-discord-bot-setup--gateway-configuration)
+3. [Aternos Server Configuration](#3-aternos-server-configuration)
+4. [Environment Configuration (.env)](#4-environment-configuration-env)
+5. [Role-Based Access Control (RBAC)](#5-role-based-access-control-rbac)
+6. [Local Machine Deployment](#6-local-machine-deployment)
+7. [Cloud VPS Deployment (Ubuntu / Debian / Oracle Cloud)](#7-cloud-vps-deployment-ubuntu--debian--oracle-cloud)
+8. [Docker & Docker Compose Deployment (Multi-Arch)](#8-docker--docker-compose-deployment-multi-arch)
+9. [Raspberry Pi & Home Cloud Deployment](#9-raspberry-pi--home-cloud-deployment)
+10. [Web Dashboard & Security Setup](#10-web-dashboard--security-setup)
+11. [Troubleshooting & FAQs](#11-troubleshooting--faqs)
 
 ---
 
-## 1. Prerequisites
+## 1. Prerequisites & System Requirements
 
-Before starting, make sure the following are installed on your machine:
-
-| Software | Minimum Version | Check Command | Download |
+| Platform | Minimum Specs | Recommended Specs | Software Dependencies |
 |---|---|---|---|
-| Node.js | v20 LTS | `node --version` | https://nodejs.org |
-| npm | v10+ | `npm --version` | Comes with Node.js |
-| Git | Any | `git --version` | https://git-scm.com |
-
-Also make sure you have:
-- A **Discord account** with a server you own or admin in.
-- An **Aternos account** with the TikdiSMP server already created.
+| **Local Machine** | 1 Core CPU, 1 GB RAM | 2 Cores, 2 GB RAM | Node.js v20+ LTS, Git, Chrome/Chromium |
+| **Cloud VPS (x86_64 / ARM64)** | 1 vCPU, 1 GB RAM | 2 vCPU, 2 GB RAM | Node.js v20, Chromium, PM2, Git |
+| **Docker (Any Host)** | 1 Core, 1 GB RAM | 2 Cores, 2 GB RAM | Docker Engine v24+, Docker Compose v2+ |
+| **Android / Termux** | ARM64 Android 9+ | 4 GB+ RAM Device | Termux (F-Droid), Node.js, Chromium, Xvfb |
 
 ---
 
-## 2. Create the Discord Application & Bot
+## 2. Discord Bot Setup & Gateway Configuration
 
-### Step 2.1 — Open the Developer Portal
+### Step 2.1 — Create Application on Discord Developer Portal
+1. Navigate to the **[Discord Developer Portal](https://discord.com/developers/applications)**.
+2. Click **New Application** (top right) and name it (e.g. `TikdiSMP Manager`).
+3. Under the **General Information** tab, copy and save your **Application ID** (`DISCORD_CLIENT_ID`).
 
-Go to: **https://discord.com/developers/applications**
+### Step 2.2 — Generate Bot Token & Enable Privileged Intents
+1. In the left navigation menu, click **Bot**.
+2. Click **Reset Token** (authenticate with 2FA if prompted) and copy your token (`DISCORD_BOT_TOKEN`).
+3. Scroll down to **Privileged Gateway Intents** and enable:
+   -  **Server Members Intent** (Allows fetching member names, avatars, and presence for `/players` and Web Dashboard)
+   -  **Message Content Intent** (Allows reading interactive messages)
+4. Click **Save Changes**.
 
-Log in with your Discord account if prompted.
-
-### Step 2.2 — Create a New Application
-
-1. Click the blue **"New Application"** button in the top-right.
-2. Give it a name — e.g., `TikdiSMP Manager`.
-3. Accept the Terms of Service.
-4. Click **"Create"**.
-
-> You are now on your application's **General Information** page.
-
-### Step 2.3 — Copy Your Client ID (Application ID)
-
-On the **General Information** tab:
-
-1. Scroll down to the **"Application ID"** field.
-2. Click **"Copy"** next to it.
-3. Save it somewhere — this is your `DISCORD_CLIENT_ID`.
-
-It looks like: `1234567890123456789`
-
-### Step 2.4 — Create the Bot User
-
-1. In the left sidebar, click **"Bot"**.
-2. Click **"Add Bot"**, then confirm with **"Yes, do it!"**.
-3. Your bot is now created.
-
-### Step 2.5 — Copy the Bot Token
-
-> **WARNING: Treat your bot token like a password. Never share it, commit it to Git, or post it anywhere.**
-
-On the **Bot** page:
-
-1. Under the username field, click **"Reset Token"** (you may need to enter your 2FA code).
-2. Click **"Copy"** on the token that appears.
-3. Save it — this is your `DISCORD_BOT_TOKEN`.
-
-It looks like: `MTIzNDU2Nzg5.GAbCdE.xYz1234...`
-
-> You can only see the token once. If you close the page without copying it, you will need to reset it again.
-
-### Step 2.6 — Enable Required Bot Permissions
-
-Still on the **Bot** page, scroll down to **"Privileged Gateway Intents"**:
-
-- Enable **"Server Members Intent"**
-- Enable **"Message Content Intent"**
-
-Click **"Save Changes"**.
-
----
-
-## 3. Invite the Bot to Your Server
-
-### Step 3.1 — Generate an Invite Link
-
-1. In the left sidebar, click **"OAuth2"** → **"URL Generator"**.
-2. Under **"Scopes"**, check:
+### Step 2.3 — Generate Bot Invite URL & Authorize
+1. In the left menu, select **OAuth2** → **URL Generator**.
+2. Under **Scopes**, check:
    - `bot`
    - `applications.commands`
-3. Under **"Bot Permissions"**, check:
+3. Under **Bot Permissions**, check:
    - `Send Messages`
    - `Embed Links`
+   - `Attach Files`
    - `Read Message History`
-   - `Manage Messages` (needed to pin the dashboard)
+   - `Manage Messages` (Required to pin and update the live dashboard embed)
    - `Use Slash Commands`
-   - `View Channels`
-
-4. Scroll to the bottom — copy the **"Generated URL"**.
-
-### Step 3.2 — Invite the Bot
-
-1. Paste the URL into your browser.
-2. Select your Discord server from the dropdown.
-3. Click **"Authorize"** and complete the CAPTCHA.
-
-The bot will appear in your server as offline — it goes online when you run it.
+4. Copy the generated authorization link, open it in your browser, select your Discord server, and click **Authorize**.
 
 ---
 
-## 4. Get Your Discord IDs
+## 3. Aternos Server Configuration
 
-You need to collect several IDs. First, enable **Developer Mode** in Discord:
-
-### Enable Developer Mode
-
-1. Open Discord → click the gear icon ⚙️ (User Settings) at the bottom-left.
-2. Go to **App Settings → Advanced**.
-3. Toggle **"Developer Mode"** ON.
-
-Now you can right-click anything to copy its ID.
+1. Log into your account at **[Aternos](https://aternos.org)**.
+2. Click on your Minecraft server to enter its management panel.
+3. Copy the full panel URL from your address bar (e.g., `https://aternos.org/server/` or `https://aternos.org/server/YOUR_SERVER_ID`).
+4. Note your Aternos **Username** and **Password** (or export your active session cookie for headless bypass).
+5. In your Aternos server options, ensure `online-mode` is configured according to your player base (Java/Bedrock/Cracked) and that the server port is noted.
 
 ---
 
-### 4.1 — Get Your Discord Guild ID (Server ID)
+## 4. Environment Configuration (.env)
 
-This is your Discord server's unique ID.
+Copy the `.env.example` file to create your active `.env`:
 
-1. Right-click your **server icon** in the left sidebar.
-2. Click **"Copy Server ID"**.
-3. Save it — this is your `DISCORD_GUILD_ID`.
-
-It looks like: `987654321098765432`
-
----
-
-### 4.2 — Get the Control Channel ID
-
-This is the channel where the bot will pin its live dashboard.
-
-> **Tip:** Create a dedicated channel like `#server-control` or `#bot-dashboard` for a clean setup.
-
-1. Right-click the **channel name** in the channel list.
-2. Click **"Copy Channel ID"**.
-3. Save it — this is your `CONTROL_CHANNEL_ID`.
-
-It looks like: `112233445566778899`
-
-Make sure the bot has permission to **send messages**, **embed links**, and **manage messages** (for pinning) in this channel.
-
----
-
-### 4.3 — Get Discord User IDs
-
-You need User IDs for the permission system.
-
-#### Your own User ID (Owner)
-
-1. Right-click **your own username** anywhere in the server.
-2. Click **"Copy User ID"**.
-3. Save it — this goes into `OWNER_USER_IDS`.
-
-#### Your friends' User IDs (Trusted Members)
-
-Repeat the same steps for each of your friends:
-
-1. Right-click their **username**.
-2. Click **"Copy User ID"**.
-3. Collect all IDs — separate them with commas in `TRUSTED_USER_IDS`.
-
-Example: `111111111111111111,222222222222222222,333333333333333333`
-
----
-
-### 4.4 — Get Role IDs (Optional)
-
-If you prefer role-based access instead of (or in addition to) user IDs:
-
-1. Go to **Server Settings → Roles**.
-2. Right-click the role name.
-3. Click **"Copy Role ID"**.
-
-Put Admin role IDs in `ADMIN_ROLE_IDS` and Trusted role IDs in `TRUSTED_ROLE_IDS` (comma-separated).
-
----
-
-## 5. Set Up the Aternos Server URL
-
-### Step 5.1 — Log In to Aternos
-
-Go to **https://aternos.org** and log in with the account that owns the TikdiSMP server.
-
-### Step 5.2 — Navigate to Your Server Panel
-
-1. Click on your server (TikdiSMP) from the server list.
-2. You will be taken to the server control panel.
-
-### Step 5.3 — Copy the Panel URL
-
-Look at your browser's address bar. The URL will look like one of these:
-
-```
-https://aternos.org/server/AbCdEfGhIjKl
-https://aternos.org/server/#AbCdEfGhIjKl
-```
-
-Copy the **entire URL** from your address bar.  
-This is your `ATERNOS_SERVER_URL`.
-
-> **Important:** The bot needs to navigate to this exact URL every time it checks or controls the server. Make sure it is the server management page, not the main Aternos homepage.
-
----
-
-## 6. Configure the .env File
-
-### Step 6.1 — Create the file
-
-In the project folder (`Server-manager/`), copy the example file:
-
-**Windows (PowerShell):**
-```powershell
-Copy-Item .env.example .env
-```
-
-**Mac/Linux:**
 ```bash
 cp .env.example .env
 ```
 
-### Step 6.2 — Open and fill in the values
-
-Open `.env` in any text editor (Notepad, VS Code, etc.).
-
-Here is every variable explained:
+Edit `.env` using your preferred editor:
 
 ```env
-# ── Discord ──────────────────────────────────────────────────────────────────
+# ── Discord Configuration ─────────────────────────────────────────────────────
+DISCORD_BOT_TOKEN="your_bot_token_here"
+DISCORD_CLIENT_ID="your_application_id_here"
+# Leave empty for global registration, or supply Guild ID for instant registration
+DISCORD_GUILD_ID="your_guild_id_here"
+# Channel where live status embeds and logs will be posted & pinned
+CONTROL_CHANNEL_ID="your_control_channel_id_here"
 
-# Your bot token from Discord Developer Portal → Bot → Reset Token
-DISCORD_BOT_TOKEN="MTIzNDU2Nzg5.GAbCdE.xYz1234..."
-
-# Your Application ID from Developer Portal → General Information
-DISCORD_CLIENT_ID="1234567890123456789"
-
-# Your Discord server ID (right-click server icon → Copy Server ID)
-DISCORD_GUILD_ID="987654321098765432"
-
-# The channel where the live dashboard will be pinned
-# (right-click channel → Copy Channel ID)
-CONTROL_CHANNEL_ID="112233445566778899"
-
-
-# ── Aternos ───────────────────────────────────────────────────────────────────
-
-# Your Aternos login username (the one you log in with at aternos.org)
+# ── Aternos Credentials ───────────────────────────────────────────────────────
 ATERNOS_USERNAME="your_aternos_username"
-
-# Your Aternos login password
 ATERNOS_PASSWORD="your_aternos_password"
+ATERNOS_SERVER_URL="https://aternos.org/server/"
 
-# Full URL to your Aternos server panel page (copy from your browser address bar)
-ATERNOS_SERVER_URL="https://aternos.org/server/AbCdEfGhIjKl"
-
-
-# ── Minecraft Server ──────────────────────────────────────────────────────────
-
-# Already filled in for TikdiSMP — do not change unless your server address changes
+# ── Minecraft Protocol Pinging (Direct craftping) ──────────────────────────────
 MC_SERVER_ADDRESS="TikdiSMP.aternos.me"
-MC_SERVER_PORT="58844"
+MC_SERVER_PORT="25565"
+MC_PING_TIMEOUT_MS="8000"
 
-
-# ── Permissions ───────────────────────────────────────────────────────────────
-
-# Your Discord User ID — gets FULL access (Owner)
-# Right-click your own name → Copy User ID
-OWNER_USER_IDS="your_user_id_here"
-
-# Other admin user IDs — separate with commas, no spaces (optional)
-# ADMIN_USER_IDS="id1,id2"
-ADMIN_USER_IDS=""
-
-# Admin role IDs — if you want to use roles instead of user IDs (optional)
-# ADMIN_ROLE_IDS="role_id_1,role_id_2"
-ADMIN_ROLE_IDS=""
-
-# Your 3 friends' user IDs — they can /start the server and view /players
-# Separate with commas: "id1,id2,id3"
-TRUSTED_USER_IDS="friend1_id,friend2_id,friend3_id"
-
-# Trusted role IDs — optional role-based access for Trusted tier
+# ── Access Control (Snowflake IDs, comma-separated) ───────────────────────────
+OWNER_USER_IDS="123456789012345678"
+ADMIN_USER_IDS="234567890123456789"
+ADMIN_ROLE_IDS="345678901234567890"
+# Minecraft Role: Can execute all commands EXCEPT /restart
+MINECRAFT_ROLE_IDS="456789012345678901"
+TRUSTED_USER_IDS="567890123456789012"
 TRUSTED_ROLE_IDS=""
 
+# ── Web Dashboard & Security ──────────────────────────────────────────────────
+WEB_ENABLED="true"
+WEB_HOST="0.0.0.0"
+PORT="3000"
+DASHBOARD_ADMIN_PASSWORD="change_this_to_a_secure_admin_password"
+WEB_EXPOSE_MEMBERS="true"
 
-# ── Polling ───────────────────────────────────────────────────────────────────
-
-# How often (in seconds) the bot checks the server status — default is 45
+# ── Polling & Engine ──────────────────────────────────────────────────────────
 POLL_INTERVAL_SECONDS="45"
-
-
-# ── Logging ───────────────────────────────────────────────────────────────────
-
-# Log verbosity: "error", "warn", "info", or "debug"
-# Use "debug" if something is not working and you want detailed logs
+LAUNCH_POLL_INTERVAL_SECONDS="10"
+LAUNCH_WATCH_TIMEOUT_MINUTES="45"
 LOG_LEVEL="info"
 ```
 
-### Step 6.3 — Save the file
+---
 
-Make sure the file is saved as `.env` — **not** `.env.txt`.
+## 5. Role-Based Access Control (RBAC)
 
-> **Never commit `.env` to Git.** It is already in `.gitignore`, so this is handled automatically as long as you do not force-add it.
+The bot enforces a multi-tier permission matrix:
+
+| Permission Level | Commands & Features Allowed | Configuration Key |
+|---|---|---|
+| **Owner** | Full privileges: `/restart`, `/force-refresh`, `/stop`, `/start`, `/status`, `/players`, `/ping`, `/info`, Admin Web Dashboard | `OWNER_USER_IDS` |
+| **Admin** | Operations: `/stop`, `/start`, `/status`, `/players`, `/ping`, `/info`, Admin Web Dashboard | `ADMIN_USER_IDS`, `ADMIN_ROLE_IDS` |
+| **Minecraft Role** | Full player operations: `/stop`, `/start`, `/status`, `/players`, `/ping`, `/info` *(Restricted from `/restart` & `/force-refresh`)* | `MINECRAFT_ROLE_IDS` |
+| **Trusted** | Safe start & telemetry: `/start`, `/status`, `/players`, `/ping`, `/info` | `TRUSTED_USER_IDS`, `TRUSTED_ROLE_IDS` |
+| **Public / Everyone** | Read-only telemetry: `/status`, `/players`, `/ping`, `/info`, `/help` | Built-in default |
 
 ---
 
-## 7. Run the Bot
+## 6. Local Machine Deployment
 
-### Step 7.1 — Install dependencies (first time only)
-
-Open a terminal/PowerShell in the `Server-manager/` folder and run:
+### Windows / macOS / Linux
 
 ```bash
+# 1. Clone repository
+git clone https://github.com/dev-harshhh19/Discord-BOT.git
+cd Discord-BOT
+
+# 2. Install dependencies
 npm install
-```
 
-This downloads all required packages (~440 packages, ~300MB including Puppeteer's Chromium).
+# 3. Create and fill .env
+cp .env.example .env
 
-### Step 7.2 — Start in development mode
-
-```bash
+# 4. Start in development mode (hot-reloading)
 npm run dev
-```
 
-This uses `tsx` for hot-reload — the bot restarts automatically when you change a file.
-
-### Step 7.3 — Or build and start in production mode
-
-```bash
+# 5. Or build and run production artifact
 npm run build
 npm start
 ```
 
 ---
 
-## 8. First Launch — What to Expect
+## 7. Cloud VPS Deployment (Ubuntu / Debian / Oracle Cloud)
 
-When the bot starts for the first time, watch the console output. You should see:
+Deploying on a cloud VPS ensures 24/7 uptime without keeping your personal computer running.
 
-```
-[2026-07-11 17:30:00 IST] [INFO] Health server listening on port 3000
-[2026-07-11 17:30:01 IST] [INFO] Logging in to Discord...
-[2026-07-11 17:30:02 IST] [INFO] Bot logged in as TikdiSMP Manager#1234
-[2026-07-11 17:30:02 IST] [INFO] Registering slash commands...
-[2026-07-11 17:30:03 IST] [INFO] Successfully registered 8 slash command(s).
-[2026-07-11 17:30:03 IST] [INFO] Dashboard message created and pinned: 1234567890...
-[2026-07-11 17:30:03 IST] [INFO] StatusMonitor starting (default interval: 45s)
-[2026-07-11 17:30:03 IST] [INFO] Bot is fully operational.
-```
-
-**In Discord, you will see:**
-
-1. The bot appears **Online** in your server's member list.
-2. In your control channel (`CONTROL_CHANNEL_ID`), a **pinned dashboard embed** appears with the server state (initially Offline/Unknown).
-3. Slash commands appear in the `/` menu.
-
-> Slash commands may take up to **1 hour** to appear globally after the first registration. For your specific guild, they should appear within a few seconds.
-
----
-
-## 9. Deploying to a VPS (Production)
-
-This is the recommended production method for 24/7 uptime. Oracle Cloud Free Tier (2 vCPUs, 1GB RAM) works great.
-
-### Step 9.1 — Connect to your VPS
-
+### Step 7.1 — Update Server & Install Node.js 20 LTS
 ```bash
-ssh your_username@your_vps_ip
-```
-
-### Step 9.2 — Install Node.js 20 LTS
-
-```bash
+sudo apt update && sudo apt upgrade -y
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
-node --version  # should print v20.x.x
+sudo apt install -y nodejs git chromium-browser dumb-init
 ```
 
-### Step 9.3 — Install Chrome dependencies (for Puppeteer)
-
+### Step 7.2 — Install Chrome Dependencies
 ```bash
-sudo apt-get install -y \
-  libnss3 libasound2 libgbm1 libxss1 \
-  fonts-ipafont-gothic fonts-wqy-zenhei \
-  fonts-thai-tlwg fonts-kacst fonts-freefont-ttf
+sudo apt install -y \
+  libnss3 libasound2 libgbm1 libxss1 libxshmfence1 \
+  fonts-liberation fonts-freefont-ttf fonts-noto-color-emoji
 ```
 
-### Step 9.4 — Clone and set up the project
-
+### Step 7.3 — Clone & Build Project
 ```bash
-git clone <your-repo-url> tikdismp-bot
-cd tikdismp-bot
+git clone https://github.com/dev-harshhh19/Discord-BOT.git /opt/aternos-bot
+cd /opt/aternos-bot
 npm install
 npm run build
 ```
 
-### Step 9.5 — Create the .env file on the server
-
-```bash
-cp .env.example .env
-nano .env   # fill in all your values, then Ctrl+O to save, Ctrl+X to exit
-```
-
-### Step 9.6 — Install PM2 and start
-
+### Step 7.4 — Configure PM2 Process Manager
 ```bash
 sudo npm install -g pm2
+cp .env.example .env
+nano .env # Paste your credentials
 
-# Start the bot
-pm2 start dist/index.js --name tikdismp-bot
-
-# Save the process list so it survives reboots
+# Launch with PM2
+pm2 start dist/index.js --name "aternos-bot"
 pm2 save
-
-# Set up PM2 to start on system boot
 pm2 startup
-# Copy and run the command it prints
 ```
 
-### Useful PM2 Commands
+---
+
+## 8. Docker & Docker Compose Deployment (Multi-Arch)
+
+Our multi-stage Docker build is engineered with native Chromium packages, non-root security, and `dumb-init` process reaping. It natively supports **x86_64 (amd64)** and **ARM64 (aarch64)**.
+
+### Method 1: Using Docker Compose (Recommended)
 
 ```bash
-pm2 status              # See running processes
-pm2 logs tikdismp-bot   # View live logs
-pm2 restart tikdismp-bot  # Restart the bot
-pm2 stop tikdismp-bot     # Stop the bot
-pm2 delete tikdismp-bot   # Remove from PM2
+# 1. Clone repo
+git clone https://github.com/dev-harshhh19/Discord-BOT.git
+cd Discord-BOT
+
+# 2. Setup .env file
+cp .env.example .env
+nano .env
+
+# 3. Launch container in detached mode
+docker compose up -d --build
+
+# 4. View live logs
+docker compose logs -f
 ```
 
----
-
-## 10. Deploying with Docker
-
-Use this method for **Railway**, **Render**, or any Docker-compatible host.
-
-### Step 10.1 — Build the Docker image
+### Method 2: Pure Docker CLI
 
 ```bash
-docker build -t tikdismp-bot .
+# Build the multi-arch image
+docker build -t devharsh19/aternos-discord-bot:latest .
+
+# Run container with shared memory and volume mounts
+docker run -d \
+  --name aternos-bot \
+  --restart unless-stopped \
+  --shm-size=1g \
+  --env-file .env \
+  -p 3000:3000 \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/logs:/app/logs \
+  devharsh19/aternos-discord-bot:latest
 ```
 
-### Step 10.2 — Run with your .env file
+---
 
-```bash
-docker run --env-file .env -p 3000:3000 tikdismp-bot
+## 9. Raspberry Pi & Home Cloud Deployment
+
+Running on a **Raspberry Pi 4 / 5**, **Proxmox VM**, **TrueNAS SCALE**, or **unRAID** Home Server:
+
+1. **Architecture Compatibility:** The Dockerfile and native Node runtime automatically detect ARM64/aarch64 and point Puppeteer to the native system Chromium.
+2. **Shared Memory Allocation:** Always include `--shm-size=1g` or `shm_size: '1gb'` in your container configuration to prevent Chromium crashes under low-memory scenarios.
+3. **Persistent Volume:** Mount `./data` to preserve your browser login state and avoiding frequent Aternos re-authentication challenges.
+
+---
+
+## 10. Web Dashboard & Security Setup
+
+When `WEB_ENABLED=true`, the built-in HTTP server provides real-time telemetry and control:
+
+- **Dashboard URL:** `http://<your-server-ip>:3000/`
+- **Telemetry Endpoints:**
+  - `GET /health` — Uptime and health check for cloud monitors.
+  - `GET /api/status` — Live Minecraft & Aternos telemetry.
+  - `GET /api/events` — Server-Sent Events (SSE) stream for instant UI updates.
+  - `GET /api/members` — Guild members roster with avatars and online status.
+  - `GET /api/dev` — Developer and project metadata.
+  - `POST /api/auth/login` — Constant-time admin authentication.
+  - `POST /api/server/action` — Trigger `start`, `stop`, or `restart` (Admin token required).
+
+> **Security Note:** Ensure `DASHBOARD_ADMIN_PASSWORD` is set to a long, high-entropy password in `.env`.
+
+---
+
+## 11. Troubleshooting & FAQs
+
+### Q: Puppeteer fails to click the Aternos Start button
+**Resolution:** Aternos periodically updates its button classes. The bot includes automatic multi-selector fallback logic. You can also override the selector directly in `.env`:
+```env
+SELECTOR_START_BUTTON="#start, .btn-start, button.server-action"
 ```
 
-### Step 10.3 — On Railway / Render
+### Q: Slash commands do not show up in Discord
+**Resolution:**
+- If `DISCORD_GUILD_ID` is set, commands register instantly to that guild.
+- If `DISCORD_GUILD_ID` is blank, commands register globally across all guilds (Discord takes up to 1 hour to propagate global commands).
 
-1. Push your code to a GitHub repository.
-2. Connect the repo to Railway or Render.
-3. Set all `.env` values as **Environment Variables** in the dashboard (never upload the `.env` file).
-4. The platform will automatically:
-   - Build the Docker image
-   - Expose port 3000 (the health endpoint)
-   - Keep the container running
-
-> The `/health` endpoint at `http://your-host:3000/health` is used by Railway/Render to confirm the service is alive.
+### Q: Docker container crashes with "Session closed" or "Target crashed"
+**Resolution:** Chromium ran out of shared memory. Ensure your Docker run command includes `--shm-size=1g` (or use `docker-compose.yml`).
 
 ---
 
-## 11. Troubleshooting
+## Developer & Support
 
-### Bot is online but slash commands don't appear
+Created and maintained by **Harshad Nikam**.
 
-Slash commands for a specific guild register within seconds. Global registration takes up to 1 hour.
-
-**Fix:** Kick the bot from your server and re-invite it, or wait up to 60 minutes.
-
----
-
-### Error: "Missing required environment variable: X"
-
-The bot exits immediately if any required variable is empty or missing.
-
-**Fix:** Double-check your `.env` file. Make sure there are no quotes missing, no trailing spaces, and all required fields are filled.
-
----
-
-### Error: "Aternos login failed: Invalid credentials"
-
-The bot could not log in to Aternos.
-
-**Fix:**
-1. Verify `ATERNOS_USERNAME` and `ATERNOS_PASSWORD` are correct.
-2. Try logging in manually at https://aternos.org to confirm your credentials work.
-3. If Aternos sends a verification email, complete it first, then restart the bot.
-4. If your account has 2FA enabled — the current bot does not support Aternos 2FA. Disable it on the Aternos account used by the bot.
-
----
-
-### Error: "Could not read Aternos status label — selector may have changed"
-
-The Aternos website updated its HTML structure and the CSS selectors broke.
-
-**Fix:** Open [`src/config/selectors.ts`](./src/config/selectors.ts) and update the selector constants to match the new Aternos HTML. You can find the correct selectors using Chrome DevTools (F12 → right-click the element → Inspect → Copy selector).
-
-Then rebuild: `npm run build` and restart.
-
----
-
-### Puppeteer crashes with "No usable sandbox"
-
-This happens on some Linux servers without proper Chrome sandbox configuration.
-
-**Fix:** The `--no-sandbox` flag is already set in `PuppeteerAternosService.ts`. If it still fails, try running as root on the VPS (not recommended long-term) or use the Docker deployment instead.
-
----
-
-### Dashboard message keeps getting created twice
-
-The bot looks for a **pinned** message by the bot in the control channel on startup.
-
-**Fix:**
-1. Make sure the bot has **"Manage Messages"** permission in the control channel (needed to pin).
-2. Delete all existing dashboard messages in the channel and restart the bot — it will create and pin a fresh one.
-
----
-
-### Minecraft players show as empty even when online
-
-`craftping` queries the server for the player list. Aternos may have **player list hiding** enabled, or the server uses a plugin that hides player names.
-
-**Fix:** This is a server-side configuration. On the Aternos panel, check if `online-mode` and `enable-query` are enabled in `server.properties`.
-
----
-
-### The bot works locally but not on Railway/Render
-
-Make sure all environment variables are set in the platform's dashboard — the `.env` file is not uploaded to the server.
-
-Also verify the platform exposes port `3000` and hits the `/health` endpoint successfully before marking the deployment as live.
-
----
-
-## Permission Level Quick Reference
-
-| Who | What to set |
-|---|---|
-| You (full control) | Add your User ID to `OWNER_USER_IDS` |
-| Secondary admin | Add their User ID to `ADMIN_USER_IDS`, or a role ID to `ADMIN_ROLE_IDS` |
-| Your 3 friends | Add their User IDs to `TRUSTED_USER_IDS` (comma-separated) |
-| Everyone else in the server | Gets read-only access automatically |
-
----
-
-*Setup guide for TikdiSMP Discord Manager Bot — built with discord.js v14, TypeScript, Puppeteer, and craftping.*
+- **Website:** [https://harshadnikam.me](https://harshadnikam.me)
+- **GitHub:** [@dev-harshhh19](https://github.com/dev-harshhh19)
+- **Issues & Contributions:** [GitHub Issues](https://github.com/dev-harshhh19/Discord-BOT/issues)

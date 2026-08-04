@@ -1,0 +1,34 @@
+# ==============================================================================
+# TikdiSMP Bot - Docker Compose Configuration
+# Designed for VPS (x86_64 / ARM64), Raspberry Pi / Home Cloud, and Termux
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  aternos-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: devharsh19/aternos-discord-bot:latest
+    container_name: aternos-discord-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      # Persist browser session, login cookies, and whitelists across restarts
+      - ./data:/app/data
+      # Persist application logs
+      - ./logs:/app/logs
+    # Allocate shared memory for Chromium browser rendering (prevents browser crashes)
+    shm_size: '1gb'
+    # Security options for Chromium sandbox in containerized environments
+    security_opt:
+      - seccomp:unconfined
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

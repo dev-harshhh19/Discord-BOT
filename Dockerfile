@@ -1,39 +1,83 @@
-FROM node:20-slim
+# ==============================================================================
+# TikdiSMP Bot - Production Multi-Arch Dockerfile
+# Compatible with x86_64 (amd64), ARM64 (aarch64 / Raspberry Pi / Oracle ARM),
+# VPS, Home Cloud, and Termux/PRoot Linux container environments.
+# ==============================================================================
 
-# Install Google Chrome stable for Puppeteer
-RUN apt-get update && apt-get install -y wget gnupg \
-  && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/googlechrome-linux-keyring.gpg \
-  && sh -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
-  && apt-get update \
-  && apt-get install -y google-chrome-stable fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-freefont-ttf libxss1 --no-install-recommends \
-  && rm -rf /var/lib/apt/lists/*
+# Build Stage: Compile TypeScript to CJS bundle
+FROM node:20-bookworm-slim AS builder
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Copy package files first for better Docker layer caching
-COPY package*.json ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy source
-COPY . .
-
-# Build TypeScript
-RUN npm run build
-
-# Create non-root user for Puppeteer security
-RUN groupadd -r pptruser \
-  && useradd -r -g pptruser -G audio,video pptruser \
-  && chown -R pptruser:pptruser /usr/src/app
-
-USER pptruser
-
-# Health server port
-EXPOSE 3000
-
-# Tell Puppeteer to use the installed Chrome
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+# Prevent Puppeteer from downloading bundled Chromium during build
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
-CMD [ "node", "dist/index.js" ]
+COPY package*.json tsconfig.json ./
+RUN npm ci
+
+COPY src/ ./src/
+COPY public/ ./public/
+
+RUN npm run build
+
+# ------------------------------------------------------------------------------
+# Production Runtime Stage
+# ------------------------------------------------------------------------------
+FROM node:20-bookworm-slim AS runner
+
+WORKDIR /app
+
+# Set production environment flags
+ENV NODE_ENV=production
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
+# Install native Chromium, dumb-init, and essential system fonts/libraries
+# Debian Bookworm provides native 'chromium' for both amd64 and arm64.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    chromium \
+    dumb-init \
+    fonts-liberation \
+    fonts-noto-color-emoji \
+    fonts-freefont-ttf \
+    ca-certificates \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libxshmfence1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy package definition and install production dependencies only
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy built application and web public assets from builder
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/public ./public
+
+# Create data directory for browser sessions and mutex locks
+RUN mkdir -p /app/data /app/logs
+
+# Create a secure, non-privileged system user for running Puppeteer
+RUN groupadd -g 10001 botgroup && \
+    useradd -u 10001 -g botgroup -s /bin/bash -m botuser && \
+    chown -R botuser:botgroup /app
+
+# Switch to non-root user
+USER botuser
+
+# Expose Web Dashboard & Telemetry port
+EXPOSE 3000
+
+# Use dumb-init to properly handle UNIX process signals and reap zombie Chromium forks
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the compiled bot
+CMD ["node", "dist/index.js"]
