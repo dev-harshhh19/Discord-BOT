@@ -1,6 +1,6 @@
 /**
  * ═════════════════════════════════════════════════════════════════════════════
- * TIKDISMP BOT DASHBOARD — CLIENT SCRIPT (app.js)
+ * TomMC-SMP BOT DASHBOARD — CLIENT SCRIPT (app.js)
  * ═════════════════════════════════════════════════════════════════════════════
  */
 
@@ -370,7 +370,7 @@ function renderStatus(data) {
 
   // 1. Bot Info
   if (bot) {
-    elements.botName.textContent = bot.tag || 'TikdiSMP Bot';
+    elements.botName.textContent = bot.tag || 'TomMC-SMP Bot';
     elements.botTagBadge.textContent = bot.ready ? 'ONLINE' : 'CONNECTING';
     elements.botStatusDot.className = `status-indicator-dot ${bot.ready ? 'online' : 'connecting'}`;
 

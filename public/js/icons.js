@@ -1,5 +1,5 @@
 /**
- * TikdiSMP SVG Vector Icon System
+ * TomMC-SMP SVG Vector Icon System
  * Standardized 24x24 and 16x16 vector icons replacing all emojis.
  */
 

@@ -19,7 +19,7 @@ export function renderOverview(container) {
   const isStopping = serverState === 'STOPPING';
   const isOffline = serverState === 'OFFLINE' || serverState === 'CRASHED';
 
-  const fullAddress = server.address ? `${server.address}${server.port ? `:${server.port}` : ''}` : 'TikdiSMP.aternos.me';
+  const fullAddress = server.address ? `${server.address}${server.port ? `:${server.port}` : ''}` : 'TomMC-SMP.aternos.me';
   const playersOnline = server.players?.online ?? 0;
   const playersMax = server.players?.max ?? 0;
   const playerList = server.players?.list || [];
@@ -33,12 +33,11 @@ export function renderOverview(container) {
         </div>
         <div class="stat-content">
           <div class="stat-label">Server State</div>
-          <div class="stat-value" style="color: ${
-            isOnline ? 'var(--color-online-text)'
-            : isStarting ? 'var(--color-starting-text)'
-            : isStopping ? 'var(--color-danger-text)'
-            : 'var(--text-muted)'
-          };">
+          <div class="stat-value" style="color: ${isOnline ? 'var(--color-online-text)'
+      : isStarting ? 'var(--color-starting-text)'
+        : isStopping ? 'var(--color-danger-text)'
+          : 'var(--text-muted)'
+    };">
             ${escapeHtml(serverState)}
           </div>
           <div class="stat-subtext">${server.uptimeFormatted ? `Online for ${server.uptimeFormatted}` : 'Currently offline'}</div>
@@ -86,26 +85,24 @@ export function renderOverview(container) {
           <span class="icon">${getIcon('zap')}</span>
           <span>Server Power & Management Actions</span>
         </div>
-        ${
-          !isAdmin
-            ? `
+        ${!isAdmin
+      ? `
           <div class="badge everyone">
             <span class="icon">${getIcon('lock')}</span>
             <span>Guest View (Read-Only)</span>
           </div>
         `
-            : `
+      : `
           <div class="badge admin">
             <span class="icon">${getIcon('unlock')}</span>
             <span>Admin Control Active</span>
           </div>
         `
-        }
+    }
       </div>
 
-      ${
-        !isAdmin
-          ? `
+      ${!isAdmin
+      ? `
         <div class="notice-banner">
           <div style="display: flex; align-items: center; gap: 0.5rem;">
             <span class="icon" style="color: var(--color-starting-text);">${getIcon('info')}</span>
@@ -117,8 +114,8 @@ export function renderOverview(container) {
           </button>
         </div>
       `
-          : ''
-      }
+      : ''
+    }
 
       <div class="actions-bar">
         <button class="action-btn start" id="action-start-btn" ${!isAdmin || isOnline || isStarting ? 'disabled' : ''}>
@@ -204,28 +201,27 @@ export function renderOverview(container) {
           <span style="font-size: 0.75rem; color: var(--text-muted);">${playersOnline} connected</span>
         </div>
 
-        ${
-          playerList.length > 0
-            ? `
+        ${playerList.length > 0
+      ? `
           <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; max-height: 180px; overflow-y: auto;">
             ${playerList
-              .map(
-                (p) => `
+        .map(
+          (p) => `
               <div style="display: inline-flex; align-items: center; gap: 0.4rem; background-color: var(--bg-surface-elevated); border: 1px solid var(--border-default); padding: 0.35rem 0.65rem; border-radius: var(--radius-sm); font-size: 0.8125rem;">
                 <span class="icon" style="color: var(--color-online);">${getIcon('user')}</span>
                 <span>${escapeHtml(typeof p === 'string' ? p : p.name)}</span>
               </div>
             `,
-              )
-              .join('')}
+        )
+        .join('')}
           </div>
         `
-            : `
+      : `
           <div style="padding: 1.5rem 0; text-align: center; color: var(--text-dim); font-size: 0.8125rem;">
             ${isOnline ? 'No players currently connected to the server.' : 'Server is offline. Start the server to see online players.'}
           </div>
         `
-        }
+    }
 
         <div style="border-top: 1px solid var(--border-subtle); padding-top: 0.75rem; margin-top: auto; display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
           <span>Discord Bot: ${bot.ready ? 'Connected' : 'Connecting...'}</span>

@@ -117,11 +117,11 @@ export function createApiRouter(
           browserReady: services.aternos.isReady?.() ?? null,
           user: client.user
             ? {
-                id: client.user.id,
-                username: client.user.username,
-                tag: client.user.tag,
-                avatar: client.user.displayAvatarURL(),
-              }
+              id: client.user.id,
+              username: client.user.username,
+              tag: client.user.tag,
+              avatar: client.user.displayAvatarURL(),
+            }
             : null,
           uptimeSeconds: Math.floor((client.uptime ?? 0) / 1000),
           processUptimeSeconds: Math.floor(process.uptime()),
@@ -167,7 +167,7 @@ export function createApiRouter(
           'Docker',
         ],
         botProject: {
-          name: 'TikdiSMP Bot',
+          name: 'TomMC-SMP Bot',
           description: 'Automated Aternos Minecraft server manager & Discord control hub with secure web telemetry.',
           version: '1.0.0',
         },
@@ -202,7 +202,7 @@ export function createApiRouter(
             success: true,
             guild: {
               id: config.discord.guildId || 'N/A',
-              name: 'TikdiSMP Community',
+              name: 'TomMC-SMP Community',
               icon: null,
               memberCount: 0,
               channelsCount: 0,
@@ -316,9 +316,9 @@ export function createApiRouter(
             userIds: isAdmin ? config.permissions.adminUserIds : [],
             roleIds: isAdmin
               ? [
-                  ...config.permissions.adminRoleIds,
-                  ...config.permissions.minecraftRoleIds.map((id) => `${id} [Minecraft Role]`),
-                ]
+                ...config.permissions.adminRoleIds,
+                ...config.permissions.minecraftRoleIds.map((id) => `${id} [Minecraft Role]`),
+              ]
               : [],
           },
           {

@@ -1,5 +1,5 @@
 # ==============================================================================
-# TikdiSMP Bot - Production Multi-Arch Dockerfile
+# TomMC-SMP Bot - Production Multi-Arch Dockerfile
 # Compatible with x86_64 (amd64), ARM64 (aarch64 / Raspberry Pi / Oracle ARM),
 # VPS, Home Cloud, and Termux/PRoot Linux container environments.
 # ==============================================================================

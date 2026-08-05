@@ -48,7 +48,7 @@ jobs:
           sed -i 's/=.*/=placeholder/' .env
 
       - name: Build Docker image
-        run: docker build -t tikdismp-bot:test .
+        run: docker build -t TomMC-SMP-bot:test .
 
   deploy:
     name: Deploy to Production

@@ -1,7 +1,7 @@
 {
   "name": "aternos-discord-bot",
   "version": "1.0.0",
-  "description": "Discord bot to manage an Aternos-hosted Minecraft server for TikdiSMP",
+  "description": "Discord bot to manage an Aternos-hosted Minecraft server for TomMC-SMP",
   "main": "dist/index.js",
   "type": "commonjs",
   "scripts": {

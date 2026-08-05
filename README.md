@@ -1,6 +1,6 @@
 <div align="center">
 
-# TikdiSMP Aternos Manager & Discord Bot
+# TomMC-SMP Aternos Manager & Discord Bot
 
 [![GitHub stars](https://img.shields.io/github/stars/dev-harshhh19/Discord-BOT?style=flat-square&color=5865F2)](https://github.com/dev-harshhh19/Discord-BOT/stargazers)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -40,7 +40,7 @@ Crafted with high-performance telemetry, direct Minecraft protocol pinging, mult
                                  │
                                  ▼
 ┌───────────────────────────────────────────────────────────┐
-│                      TikdiSMP Bot                         │
+│                      TomMC-SMP Bot                         │
 │                                                           │
 │  ┌──────────────────────┐       ┌──────────────────────┐  │
 │  │   Discord Client     │       │   Web Dashboard &    │  │

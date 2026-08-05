@@ -1,6 +1,6 @@
 <div align="center">
 
-# TikdiSMP Bot — Complete Setup & Deployment Guide
+# TomMC-SMP Bot — Complete Setup & Deployment Guide
 
 **Comprehensive step-by-step documentation for deploying the Aternos Discord Bot across Local Workstations, Cloud VPS (x86 & ARM64), Multi-Platform Docker, Home Servers, and Termux.**
 
@@ -41,7 +41,7 @@ Developed by **[Harshad Nikam](https://harshadnikam.me)** • [@dev-harshhh19](h
 
 ### Step 2.1 — Create Application on Discord Developer Portal
 1. Navigate to the **[Discord Developer Portal](https://discord.com/developers/applications)**.
-2. Click **New Application** (top right) and name it (e.g. `TikdiSMP Manager`).
+2. Click **New Application** (top right) and name it (e.g. `TomMC-SMP Manager`).
 3. Under the **General Information** tab, copy and save your **Application ID** (`DISCORD_CLIENT_ID`).
 
 ### Step 2.2 — Generate Bot Token & Enable Privileged Intents
@@ -103,7 +103,7 @@ ATERNOS_PASSWORD="your_aternos_password"
 ATERNOS_SERVER_URL="https://aternos.org/server/"
 
 # ── Minecraft Protocol Pinging (Direct craftping) ──────────────────────────────
-MC_SERVER_ADDRESS="TikdiSMP.aternos.me"
+MC_SERVER_ADDRESS="TomMC-SMP.aternos.me"
 MC_SERVER_PORT="25565"
 MC_PING_TIMEOUT_MS="8000"
 
