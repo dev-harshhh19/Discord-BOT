@@ -66,8 +66,10 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_PRIVATE_KEY }}
+          port: 22
           script: |
-            cd /path/to/your/app
+            # If your app is not in /root/Discord-BOT, change this path!
+            cd /root/Discord-BOT
             git pull origin main
             
             # Stop, Rebuild, and Start using Docker
