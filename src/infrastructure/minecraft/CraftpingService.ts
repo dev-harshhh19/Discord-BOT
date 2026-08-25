@@ -58,7 +58,7 @@ export class CraftpingService implements IMinecraftService {
       const players = status.getPlayers();
 
       const playerList: PlayerData[] = (players.getSample() ?? []).map((p) => {
-        let rawName = p.getName();
+        const rawName = p.getName();
         let nameStr = 'Unknown';
         
         if (typeof rawName === 'string') {
@@ -66,11 +66,18 @@ export class CraftpingService implements IMinecraftService {
         } else if (rawName && typeof rawName === 'object') {
           // Sometimes mods or newer versions send Chat Components in the sample.
           // Try to extract the 'text' property or stringify it.
-          const obj = rawName as any;
-          if (obj.text) {
+          const obj = rawName as Record<string, unknown>;
+          if (typeof obj.text === 'string') {
              nameStr = obj.text;
              if (Array.isArray(obj.extra)) {
-                nameStr += obj.extra.map((e: any) => e.text || '').join('');
+                nameStr += obj.extra
+                  .map((e: unknown) => {
+                    if (e && typeof e === 'object' && 'text' in e) {
+                      return String((e as Record<string, unknown>).text || '');
+                    }
+                    return '';
+                  })
+                  .join('');
              }
           } else {
              // Fallback to removing any weird object representation

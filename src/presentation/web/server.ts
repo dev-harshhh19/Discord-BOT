@@ -62,7 +62,7 @@ export function startWebServer(
     app.use(express.static(staticDir, { index: false, maxAge: '1h' }));
 
     // Explicit routes for Discord Bot Verification (No JS required)
-    const renderLegalPage = (title: string, content: string) => `
+    const renderLegalPage = (title: string, content: string): string => `
       <!DOCTYPE html>
       <html lang="en">
       <head>
