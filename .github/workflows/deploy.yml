@@ -70,13 +70,8 @@ jobs:
             cd /path/to/your/app
             git pull origin main
             
-            # If using Docker (Recommended since you test it in CI):
-            # docker-compose down
-            # docker-compose build
-            # docker-compose up -d
-            
-            # OR if using PM2 directly on the VPS:
-            npm ci
-            npm run build
-            pm2 restart aternos-bot --update-env
+            # Stop, Rebuild, and Start using Docker
+            docker-compose down
+            docker-compose build
+            docker-compose up -d
 
