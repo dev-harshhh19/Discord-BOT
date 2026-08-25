@@ -68,12 +68,17 @@ jobs:
           key: ${{ secrets.VPS_PRIVATE_KEY }}
           port: 22
           script: |
-            # If your app is not in /root/Discord-BOT, change this path!
-            cd /root/Discord-BOT
+            # If the directory doesn't exist, clone it first
+            if [ ! -d "/home/Discord-BOT" ]; then
+              echo "Repository not found. Cloning it now..."
+              cd /home
+              git clone https://github.com/dev-harshhh19/Discord-BOT.git
+            fi
+            
+            cd /home/Discord-BOT
             git pull origin main
             
-            # Stop, Rebuild, and Start using Docker
-            docker-compose down
-            docker-compose build
-            docker-compose up -d
-
+            # Use 'docker compose' (V2 plugin) instead of old 'docker-compose'
+            docker compose down || docker-compose down
+            docker compose build || docker-compose build
+            docker compose up -d || docker-compose up -d
