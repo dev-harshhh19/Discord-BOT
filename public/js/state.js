@@ -10,7 +10,7 @@ class StateStore {
       token: sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || '',
       isAdmin: false,
       authConfigured: true,
-      currentTab: 'overview',
+      currentTab: 'landing',
       status: null,
       minecraftPlayers: null,
       registeredPlayers: [],

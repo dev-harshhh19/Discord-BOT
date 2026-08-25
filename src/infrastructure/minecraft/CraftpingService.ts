@@ -57,10 +57,37 @@ export class CraftpingService implements IMinecraftService {
 
       const players = status.getPlayers();
 
-      const playerList: PlayerData[] = (players.getSample() ?? []).map((p) => ({
-        name: p.getName(),
-        id: p.getId(),
-      }));
+      const playerList: PlayerData[] = (players.getSample() ?? []).map((p) => {
+        let rawName = p.getName();
+        let nameStr = 'Unknown';
+        
+        if (typeof rawName === 'string') {
+          nameStr = rawName;
+        } else if (rawName && typeof rawName === 'object') {
+          // Sometimes mods or newer versions send Chat Components in the sample.
+          // Try to extract the 'text' property or stringify it.
+          const obj = rawName as any;
+          if (obj.text) {
+             nameStr = obj.text;
+             if (Array.isArray(obj.extra)) {
+                nameStr += obj.extra.map((e: any) => e.text || '').join('');
+             }
+          } else {
+             // Fallback to removing any weird object representation
+             nameStr = JSON.stringify(rawName);
+          }
+        } else {
+          nameStr = String(rawName);
+        }
+
+        // Clean up any weird artifacts if they still appear
+        nameStr = nameStr.replace(/\[object Object\]/g, '').trim();
+
+        return {
+          name: nameStr || 'Unknown',
+          id: p.getId() || '',
+        };
+      });
 
       const mcStatus: MinecraftStatus = {
         online: true,

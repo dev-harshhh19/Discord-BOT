@@ -1,7 +1,6 @@
 import { getIcon } from '../icons.js';
 import { store } from '../state.js';
 import { api } from '../api.js';
-import { openAuthModal } from './authModal.js';
 import { showToast } from './toast.js';
 
 /**
@@ -32,7 +31,9 @@ export function renderLogs(container) {
       </div>
     `;
 
-    container.querySelector('#logs-unlock-btn')?.addEventListener('click', openAuthModal);
+    container.querySelector('#logs-unlock-btn')?.addEventListener('click', () => {
+      store.setCurrentTab('login');
+    });
     return;
   }
 

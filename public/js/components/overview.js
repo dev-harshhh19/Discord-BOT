@@ -1,7 +1,6 @@
 import { getIcon } from '../icons.js';
 import { store } from '../state.js';
 import { api } from '../api.js';
-import { openAuthModal } from './authModal.js';
 import { showToast } from './toast.js';
 
 /**
@@ -232,19 +231,36 @@ export function renderOverview(container) {
   `;
 
   // Attach Event Handlers
-  container.querySelector('#banner-unlock-btn')?.addEventListener('click', openAuthModal);
+  container.querySelector('#banner-unlock-btn')?.addEventListener('click', () => {
+    store.setCurrentTab('login');
+  });
 
   // Copy server address button
   const copyBtn = container.querySelector('#copy-addr-btn');
   copyBtn?.addEventListener('click', async () => {
     try {
-      await navigator.clipboard.writeText(fullAddress);
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(fullAddress);
+      } else {
+        // Fallback for non-secure contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = fullAddress;
+        textArea.style.position = 'absolute';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (!successful) throw new Error('Copy command failed');
+      }
+      
       copyBtn.innerHTML = `<span class="icon">${getIcon('check')}</span><span>Copied!</span>`;
       setTimeout(() => {
         copyBtn.innerHTML = `<span class="icon">${getIcon('copy')}</span><span>Copy</span>`;
       }, 2000);
       showToast('Server address copied to clipboard.', 'success');
-    } catch {
+    } catch (err) {
+      console.error('Copy failed:', err);
       showToast('Failed to copy address.', 'error');
     }
   });

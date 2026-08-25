@@ -21,6 +21,8 @@ import { pingCommand } from './presentation/commands/ping';
 import { helpCommand } from './presentation/commands/help';
 import { registerCommand } from './presentation/commands/register';
 import { forceRefreshCommand } from './presentation/commands/force-refresh';
+import { termsCommand } from './presentation/commands/terms';
+import { privacyCommand } from './presentation/commands/privacy';
 
 const commands = new Map<string, BotCommand>([
   ['start', startCommand],
@@ -32,6 +34,8 @@ const commands = new Map<string, BotCommand>([
   ['info', infoCommand],
   ['ping', pingCommand],
   ['help', helpCommand],
+  ['terms', termsCommand],
+  ['privacy', privacyCommand],
 ]);
 
 // Self-registration is opt-in: when disabled the command is neither routed nor

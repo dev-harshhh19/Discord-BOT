@@ -6,6 +6,10 @@ import { renderMembers } from './components/members.js';
 import { renderAccessControl } from './components/accessControl.js';
 import { renderLogs } from './components/logs.js';
 import { renderAboutDev } from './components/aboutDev.js';
+import { renderLanding } from './components/landing.js';
+import { renderLogin } from './components/login.js';
+import { renderTerms } from './components/terms.js';
+import { renderPrivacy } from './components/privacy.js';
 
 /**
  * Main Application Orchestrator
@@ -20,9 +24,13 @@ class App {
       access: document.getElementById('tab-access'),
       logs: document.getElementById('tab-logs'),
       dev: document.getElementById('tab-dev'),
+      landing: document.getElementById('tab-landing'),
+      login: document.getElementById('tab-login'),
+      terms: document.getElementById('tab-terms'),
+      privacy: document.getElementById('tab-privacy'),
     };
     this.pollingInterval = null;
-    this.activeTab = 'overview';
+    this.activeTab = 'landing';
     this.lastAdminState = false;
   }
 
@@ -31,6 +39,14 @@ class App {
     store.subscribe((state) => {
       const tabChanged = state.currentTab !== this.activeTab;
       const adminChanged = state.isAdmin !== this.lastAdminState;
+
+      if (tabChanged) {
+        // Update URL
+        const path = state.currentTab === 'landing' ? '/' : `/${state.currentTab}`;
+        if (window.location.pathname !== path && path !== '/terms-and-service' && path !== '/privacy-policy') {
+            window.history.pushState({ tab: state.currentTab }, '', path);
+        }
+      }
 
       if (tabChanged || adminChanged) {
         this.activeTab = state.currentTab;
@@ -51,6 +67,10 @@ class App {
       this.lastAdminState = authRes.authenticated;
     }
 
+    // 2.5 Handle initial URL routing
+    this.handleRouting();
+    window.addEventListener('popstate', () => this.handleRouting());
+
     // 3. Initial load
     await Promise.all([
       this.fetchStatus(),
@@ -62,6 +82,41 @@ class App {
 
     // 4. Start background polling (5 seconds)
     this.startPolling();
+
+    // 5. Attach footer link handlers
+    document.getElementById('footer-link-terms')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      store.setCurrentTab('terms');
+    });
+    document.getElementById('footer-link-privacy')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      store.setCurrentTab('privacy');
+    });
+  }
+
+  handleRouting() {
+    const path = window.location.pathname.toLowerCase();
+    
+    // Map URLs to tabs
+    if (path.includes('terms') || path.includes('t&c')) {
+      store.setCurrentTab('terms');
+    } else if (path.includes('privacy')) {
+      store.setCurrentTab('privacy');
+    } else if (path === '/overview' || path === '/dashboard') {
+      store.setCurrentTab('overview');
+    } else if (path === '/login') {
+      store.setCurrentTab('login');
+    } else if (path === '/members') {
+      store.setCurrentTab('members');
+    } else if (path === '/logs') {
+      store.setCurrentTab('logs');
+    } else if (path === '/access') {
+      store.setCurrentTab('access');
+    } else if (path === '/dev') {
+      store.setCurrentTab('dev');
+    } else {
+      store.setCurrentTab('landing'); // default
+    }
   }
 
   startPolling() {
@@ -144,6 +199,10 @@ class App {
         else if (tabKey === 'access') renderAccessControl(container);
         else if (tabKey === 'logs') renderLogs(container);
         else if (tabKey === 'dev') renderAboutDev(container);
+        else if (tabKey === 'landing') renderLanding(container);
+        else if (tabKey === 'login') renderLogin(container);
+        else if (tabKey === 'terms') renderTerms(container);
+        else if (tabKey === 'privacy') renderPrivacy(container);
       } else {
         container.classList.remove('active');
       }

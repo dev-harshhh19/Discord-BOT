@@ -1,6 +1,5 @@
 import { getIcon } from '../icons.js';
 import { store } from '../state.js';
-import { openAuthModal } from './authModal.js';
 
 /**
  * Access Control & Permissions Component
@@ -160,7 +159,9 @@ export function renderAccessControl(container) {
     </div>
   `;
 
-  container.querySelector('#access-quick-unlock-btn')?.addEventListener('click', openAuthModal);
+  container.querySelector('#access-quick-unlock-btn')?.addEventListener('click', () => {
+    store.setCurrentTab('login');
+  });
 }
 
 function getTierBadgeClass(name) {

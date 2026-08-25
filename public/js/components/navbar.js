@@ -1,6 +1,5 @@
 import { getIcon } from '../icons.js';
 import { store } from '../state.js';
-import { openAuthModal } from './authModal.js';
 import { showToast } from './toast.js';
 
 /**
@@ -21,7 +20,7 @@ export function renderNavbar(container) {
           ${getIcon('server')}
         </div>
         <div>
-          <div class="brand-title">${escapeHtml(serverName)}</div>
+          <div class="brand-title" style="cursor:pointer;" id="brand-title-link">${escapeHtml(serverName)}</div>
           <div class="brand-subtitle">Discord Bot & Telemetry Hub</div>
         </div>
       </div>
@@ -31,64 +30,66 @@ export function renderNavbar(container) {
           <span class="status-dot"></span>
           <span class="status-text">${escapeHtml(serverState)}</span>
         </div>
-
-        ${
-          isAdmin
-            ? `
-          <button class="auth-btn admin" id="auth-lock-btn" title="Logged in as Admin. Click to lock session.">
-            <span class="icon">${getIcon('unlock')}</span>
-            <span>Admin Active</span>
-            <span class="icon" style="margin-left: 0.25rem;">${getIcon('logOut')}</span>
-          </button>
-        `
-            : `
-          <button class="auth-btn guest" id="auth-unlock-btn" title="Click to enter password and unlock Admin access">
-            <span class="icon">${getIcon('lock')}</span>
-            <span>Unlock Admin</span>
-          </button>
-        `
-        }
       </div>
     </header>
 
     <nav class="nav-tabs">
+      <button class="nav-tab-btn ${state.currentTab === 'landing' ? 'active' : ''}" data-tab="landing">
+        <span class="icon">${getIcon('home')}</span>
+        <span>Home</span>
+      </button>
+
       <button class="nav-tab-btn ${state.currentTab === 'overview' ? 'active' : ''}" data-tab="overview">
         <span class="icon">${getIcon('server')}</span>
-        <span>Overview</span>
+        <span>Dashboard</span>
       </button>
 
       <button class="nav-tab-btn ${state.currentTab === 'members' ? 'active' : ''}" data-tab="members">
         <span class="icon">${getIcon('users')}</span>
-        <span>Active Members</span>
+        <span>Members</span>
         ${state.members?.length ? `<span class="badge-count">${state.members.length}</span>` : ''}
       </button>
 
       <button class="nav-tab-btn ${state.currentTab === 'access' ? 'active' : ''}" data-tab="access">
         <span class="icon">${getIcon('shield')}</span>
-        <span>Access Control</span>
+        <span>Access</span>
         ${!isAdmin ? `<span class="icon" style="color: var(--text-dim);">${getIcon('lock')}</span>` : ''}
       </button>
 
       <button class="nav-tab-btn ${state.currentTab === 'logs' ? 'active' : ''}" data-tab="logs">
         <span class="icon">${getIcon('terminal')}</span>
-        <span>Live Logs</span>
+        <span>Logs</span>
         ${!isAdmin ? `<span class="icon" style="color: var(--text-dim);">${getIcon('lock')}</span>` : ''}
       </button>
 
-      <button class="nav-tab-btn ${state.currentTab === 'dev' ? 'active' : ''}" data-tab="dev">
-        <span class="icon">${getIcon('code')}</span>
-        <span>About Dev</span>
-      </button>
+      <div style="flex-grow: 1;"></div>
+
+      ${
+        isAdmin
+          ? `
+        <button class="nav-tab-btn" id="auth-lock-btn" title="Logged in as Admin. Click to lock session.">
+          <span class="icon">${getIcon('logOut')}</span>
+          <span>Log Out</span>
+        </button>
+      `
+          : `
+        <button class="nav-tab-btn ${state.currentTab === 'login' ? 'active' : ''}" data-tab="login">
+          <span class="icon">${getIcon('key')}</span>
+          <span>Admin Login</span>
+        </button>
+      `
+      }
     </nav>
   `;
 
   // Attach event handlers
-  container.querySelector('#auth-unlock-btn')?.addEventListener('click', () => {
-    openAuthModal();
+  container.querySelector('#brand-title-link')?.addEventListener('click', () => {
+    store.setCurrentTab('landing');
   });
 
   container.querySelector('#auth-lock-btn')?.addEventListener('click', () => {
     store.clearToken();
+    store.setCurrentTab('landing');
     showToast('Admin session locked.', 'info');
   });
 

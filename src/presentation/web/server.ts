@@ -60,6 +60,52 @@ export function startWebServer(
 
   if (hasUi) {
     app.use(express.static(staticDir, { index: false, maxAge: '1h' }));
+
+    // Explicit routes for Discord Bot Verification (No JS required)
+    const renderLegalPage = (title: string, content: string) => `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${title} - ${config.branding.serverName}</title>
+        <style>
+          body { font-family: sans-serif; line-height: 1.6; padding: 2rem; max-width: 800px; margin: auto; background: #0b0f17; color: #f8fafc; }
+          h1 { color: #60a5fa; }
+          h2 { color: #93c5fd; margin-top: 2rem; }
+        </style>
+      </head>
+      <body>
+        <h1>${title}</h1>
+        ${content}
+      </body>
+      </html>
+    `;
+
+    app.get(['/terms', '/terms-and-service', '/t&c'], (_req, res) => {
+      res.send(renderLegalPage('Terms of Service', `
+        <p>By using the ${config.branding.serverName} Bot & Dashboard, you agree to the following terms:</p>
+        <h2>1. Use of Service</h2>
+        <p>This service provides telemetry and management for our Minecraft server. Authorized administrators are granted access to execute power commands.</p>
+        <h2>2. Acceptable Use</h2>
+        <p>Do not abuse the bot commands, API endpoints, or dashboard features. All interactions must comply with Discord and Aternos Terms of Service.</p>
+        <h2>3. Data & Privacy</h2>
+        <p>For details on how we handle your Discord and Minecraft data, please review our Privacy Policy.</p>
+      `));
+    });
+
+    app.get(['/privacy', '/privacy-policy'], (_req, res) => {
+      res.send(renderLegalPage('Privacy Policy', `
+        <p>Here is how we handle your data on the ${config.branding.serverName} Bot & Dashboard:</p>
+        <h2>1. Information We Collect</h2>
+        <p>We collect your Discord Member ID, username, server roles, and any Minecraft usernames you submit during whitelist registration.</p>
+        <h2>2. How We Use Information</h2>
+        <p>Your data is solely used to authenticate management commands, manage the Minecraft server whitelist, and provide live telemetry.</p>
+        <h2>3. Data Security</h2>
+        <p>We do not sell or trade your data. Telemetry logs (like IPs) are anonymized in logs. No third-party tracking or analytics cookies are used.</p>
+      `));
+    });
+
     // Single-page fallback for any non-API path.
     app.get(/^\/(?!api\/|health$).*/, (_req: Request, res: Response) => {
       res.sendFile(indexFile);

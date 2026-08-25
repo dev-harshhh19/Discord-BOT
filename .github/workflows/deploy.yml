@@ -60,20 +60,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy Placeholder
-        run: |
-          echo "Code quality checked, tests passed, and image built successfully!"
-          echo "TODO: Add deployment steps (e.g., SSH to VPS, deploy to Render/Railway, etc.)"
-          # Example for VPS via SSH:
-          # - uses: appleboy/ssh-action@v1.0.0
-          #   with:
-          #     host: ${{ secrets.HOST }}
-          #     username: ${{ secrets.USERNAME }}
-          #     key: ${{ secrets.PRIVATE_KEY }}
-          #     script: |
-          #       cd /path/to/app
-          #       git pull origin main
-          #       npm ci
-          #       npm run build
-          #       pm2 restart aternos-bot
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_PRIVATE_KEY }}
+          script: |
+            cd /path/to/your/app
+            git pull origin main
+            
+            # If using Docker (Recommended since you test it in CI):
+            # docker-compose down
+            # docker-compose build
+            # docker-compose up -d
+            
+            # OR if using PM2 directly on the VPS:
+            npm ci
+            npm run build
+            pm2 restart aternos-bot --update-env
 
