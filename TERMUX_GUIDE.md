@@ -1,163 +1,133 @@
-# Termux Deployment Guide
+# 📱 Termux Deployment Guide (Android ARM64)
 
-This document outlines the procedure for deploying and running the Aternos Server Manager natively on an Android device using Termux.
+This guide provides a comprehensive, production-ready procedure for deploying the **TomMC-SMP Aternos Manager** natively on an Android device using Termux. 
 
-By utilizing Termux, a virtual X11 display server (Xvfb), and a headless Chromium build, you can host the Discord bot 24/7 on an ARM-based Android device without relying on a VPS or cloud hosting provider.
-
----
-
-## 1. Prerequisites
-
-### Install Termux
-
-Download the latest version from **F-Droid**.
-
-> **Important**
-> The Google Play Store version of Termux is deprecated and no longer maintained.
-
-https://f-droid.org/packages/com.termux/
-
-### Disable Battery Optimization
-
-Android may terminate background applications to save power.
-
-1. Open **Settings** → **Apps** → **Termux**
-2. Open **Battery**
-3. Set battery usage to **Unrestricted** (or **Don't optimize**)
+By utilizing Termux, a virtual X11 display server (`Xvfb`), and an ARM-compiled headless Chromium build, you can host the Discord bot **24/7 at zero cost** on a spare Android device, completely bypassing expensive VPS fees.
 
 ---
 
-## 2. Install Dependencies
+## 1. Prerequisites & System Configuration
 
-Update packages and install the required dependencies:
+### 1.1 Install the correct Termux version
+**Do NOT use the Google Play Store version.** It is deprecated, broken, and will fail to install Node.js packages.
+* Download and install the latest version from **[F-Droid](https://f-droid.org/packages/com.termux/)**.
 
-```bash
-pkg update && pkg upgrade -y
-pkg install x11-repo -y
-pkg install nodejs git chromium make python xvfb -y
-```
+### 1.2 Prevent Android from killing the bot (Crucial)
+Android aggressively terminates background applications to save power. You must explicitly whitelist Termux:
+1. Open Android **Settings** → **Apps** → **Termux**.
+2. Tap **Battery**.
+3. Set the battery usage profile to **Unrestricted** (or **Don't optimize**).
 
-> **Note**
->
-> You **must** use the Termux `chromium` package.
->
-> Puppeteer's bundled Chromium is built for x86_64 and is incompatible with Android ARM devices.
-
----
-
-## 3. Clone the Repository
-
-```bash
-git clone -b termux https://github.com/dev-harshhh19/Discord-BOT.git
-cd Discord-BOT
-```
-
----
-
-## 4. Install Node Modules
-
-Prevent Puppeteer from downloading its incompatible Chromium binary:
-
-```bash
-npm install
-```
-
-# Build the TypeScript project
-npm run build
-
----
-
-## 5. Configure Environment Variables
-
-Copy the example configuration:
-
-```bash
-cp .env.example .env
-```
-
-Open the file:
-
-```bash
-nano .env
-```
-
-Append the following values:
-
-```env
-PUPPETEER_EXECUTABLE_PATH=/data/data/com.termux/files/usr/bin/chromium-browser
-PUPPETEER_HEADLESS=false
-```
-
-> **If Chromium isn't found**
->
-> Run:
->
-> ```bash
-> which chromium
-> ```
->
-> Then replace the value of `PUPPETEER_EXECUTABLE_PATH` with the returned path.
-
----
-
-## 6. Acquire a Wakelock
-
-Android suspends CPU execution when the device sleeps.
-
-To keep the bot running:
-
-1. Pull down the notification shade.
-2. Find the **Termux** notification.
-3. Tap **Acquire Wakelock**.
-
----
-
-## 7. Start the Bot
-
-Launch the application with a virtual X11 display:
-
-```bash
-xvfb-run --server-args="-screen 0 1024x768x24" npm run dev
-```
-
-`xvfb-run` creates a virtual display that allows Chromium to run in headful mode without requiring a physical display or Android X11 server.
-
----
-
-# Troubleshooting
-
-## Android 12+ Phantom Process Killer
-
-Android 12 and later include a **Phantom Process Killer** that may terminate Chromium after several hours because it spawns many child processes.
-
-If Termux unexpectedly exits, you can disable this behavior using ADB.
-
-### Enable Developer Options
-
-- Enable **Developer Options**
-- Enable **USB Debugging**
-
-### Connect Your Device
-
-Connect the phone to a computer via USB.
-
-### Run
-
+### 1.3 Fix Android 12+ Phantom Process Killer (Optional but Recommended)
+If you are on Android 12 or newer, the OS limits apps to 32 child processes. Chromium spawns many processes, and Android will randomly kill the bot after a few hours. 
+To permanently fix this, connect your phone to a PC via USB and run this ADB command:
 ```bash
 adb shell device_config put activity_manager max_phantom_processes 2147483647
 ```
 
-This disables the Phantom Process limit and prevents Android from terminating Chromium-based processes.
+---
+
+## 2. Environment Setup
+
+Open Termux and update the package repositories. We will install the required compilation tools, Node.js, and a native ARM64 build of Chromium.
+
+```bash
+# Update repositories and install X11 window system support
+pkg update && pkg upgrade -y
+pkg install x11-repo -y
+
+# Install core dependencies and ARM Chromium
+pkg install nodejs git chromium make python xvfb xauth -y
+```
+
+> ⚠️ **Why native Chromium?** 
+> Standard Puppeteer attempts to download an `x86_64` (Windows/Linux PC) version of Chromium, which immediately crashes on Android ARM processors. We must use the Chromium package provided by Termux.
 
 ---
 
-## Notes
+## 3. Installation
 
-- Keep **Battery Optimization** disabled for Termux.
-- Always acquire a **Wakelock** before starting the bot.
-- Use the **Termux Chromium** package instead of Puppeteer's bundled Chromium.
-- If Chromium cannot be found, verify its location with:
+We have created a dedicated `termux` branch for this project. This branch replaces standard `puppeteer` with `puppeteer-core`—a stripped-down version that completely skips the broken x86 Chromium downloads, making installation instant and error-free.
 
 ```bash
+# Clone the dedicated Android branch
+git clone -b termux https://github.com/dev-harshhh19/Discord-BOT.git
+cd Discord-BOT
+
+# Install dependencies (puppeteer-core will install instantly)
+npm install
+
+# Compile the TypeScript project
+npm run build
+```
+
+---
+
+## 4. Configuration
+
+Copy the example configuration file:
+```bash
+cp .env.example .env
+nano .env
+```
+
+Append the following Android-specific environment variables to the bottom of the `.env` file:
+```env
+# Tell Puppeteer where the native Termux ARM Chromium is located
+PUPPETEER_EXECUTABLE_PATH=/data/data/com.termux/files/usr/bin/chromium-browser
+
+# Run in headful mode (bypasses Cloudflare bot detection)
+PUPPETEER_HEADLESS=false
+```
+
+*(Press `CTRL+O` to save, `Enter` to confirm, and `CTRL+X` to exit nano).*
+
+---
+
+## 5. Launching the Bot
+
+Before launching, you **must acquire a Wakelock** to keep the CPU running while the screen is off:
+1. Pull down your Android notification shade.
+2. Find the **Termux** notification.
+3. Tap **Acquire Wakelock**.
+
+Start the bot inside a virtual display buffer using `xvfb-run` (this allows "headful" Chrome to run without an actual screen attached):
+
+```bash
+xvfb-run --server-args="-screen 0 1024x768x24" npm start
+```
+
+---
+
+## 6. Troubleshooting & Fallbacks
+
+### Issue 1: "The current platform is not supported" during `npm install`
+**Cause:** You are on the `main` branch, which uses standard Puppeteer.
+**Fix:** Switch to the termux branch and reinstall.
+```bash
+git checkout termux
+rm -rf node_modules
+npm install
+```
+
+### Issue 2: `xvfb-run: error: xauth command not found`
+**Cause:** X11 authentication tools are missing.
+**Fix:** Ensure you installed `xauth`.
+```bash
+pkg install xauth -y
+```
+
+### Issue 3: Chromium fails to launch / Path not found
+**Cause:** The path to Chromium varies depending on your Termux installation.
+**Fix:** Find the exact path by running:
+```bash
 which chromium
+```
+Then, update `PUPPETEER_EXECUTABLE_PATH` in your `.env` file with the exact output from that command.
+
+### Issue 4: Bot runs out of memory (OOM Kill) or crashes frequently
+**Cause:** Android devices with low RAM (under 4GB) might struggle with Chromium.
+**Fix:** You can forcefully limit the Node.js memory footprint. Run the bot using this command instead:
+```bash
+xvfb-run -a node --max-old-space-size=128 dist/index.js
 ```
