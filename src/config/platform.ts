@@ -89,7 +89,7 @@ function detectPlatform(): PlatformInfo {
     isRoot: typeof process.getuid === 'function' && process.getuid() === 0,
     arch: process.arch,
     totalMemoryMb,
-    isLowMemory: totalMemoryMb > 0 && totalMemoryMb < 2048,
+    isLowMemory: isDocker || (totalMemoryMb > 0 && totalMemoryMb < 2048),
     hasDisplay:
       process.platform === 'win32' ||
       process.platform === 'darwin' ||
