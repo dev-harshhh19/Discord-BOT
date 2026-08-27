@@ -42,12 +42,15 @@ export function startWebServer(
   });
 
   // Open, because container and PaaS health probes cannot supply a token. It
-  // deliberately exposes nothing beyond liveness.
-  app.get('/health', (_req: Request, res: Response) => {
+  // deliberately exposes nothing beyond liveness and basic telemetry for trackers like Uptime Kuma.
+  app.get(['/health', '/api/health'], (_req: Request, res: Response) => {
     const ready = client.isReady();
     res.status(ready ? 200 : 503).json({
-      status: ready ? 'ok' : 'starting',
+      status: ready ? 'UP' : 'STARTING',
       state: services.currentState,
+      discord_latency_ms: client.ws.ping >= 0 ? client.ws.ping : null,
+      uptime_seconds: Math.floor(process.uptime()),
+      memory_mb: Math.round(process.memoryUsage().rss / 1024 / 1024),
       timestamp: new Date().toISOString(),
     });
   });
