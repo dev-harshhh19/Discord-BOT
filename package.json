@@ -27,9 +27,9 @@
     "discord.js": "^14.16.3",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "puppeteer-core": "^22.15.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "puppeteer": "^22.15.0",
     "winston": "^3.17.0"
   },
   "devDependencies": {

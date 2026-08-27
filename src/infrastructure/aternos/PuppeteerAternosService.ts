@@ -1,6 +1,9 @@
-import puppeteer from 'puppeteer-extra';
+import { addExtra } from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import type { Browser, Page } from 'puppeteer';
+import puppeteerCore from 'puppeteer-core';
+import type { Browser, Page } from 'puppeteer-core';
+
+const puppeteer = addExtra(puppeteerCore);
 import { IAternosService, ServerState, QueueInfo } from '../../types';
 import { config } from '../../config/env';
 import { logger } from '../logger/WinstonLogger';
