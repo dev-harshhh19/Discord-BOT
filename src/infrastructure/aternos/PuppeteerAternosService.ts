@@ -431,38 +431,6 @@ export class PuppeteerAternosService implements IAternosService {
     await page.setViewport({ width: 1920, height: 1080 });
     await page.setUserAgent(config.browser.userAgent);
 
-    // RESOURCE OPTIMIZATION (Essential for Render Free Tier)
-    await page.setRequestInterception(true);
-    page.on('request', (request) => {
-      const resourceType = request.resourceType();
-      const url = request.url().toLowerCase();
-
-      // Cloudflare Turnstile strictly requires its own assets to pass the challenge
-      if (url.includes('cloudflare') || url.includes('turnstile')) {
-        request.continue().catch(() => {});
-        return;
-      }
-      
-      // Block heavy visual resources that the bot doesn't need to read DOM text
-      if (['image', 'media', 'font', 'stylesheet'].includes(resourceType)) {
-        request.abort().catch(() => {});
-      } 
-      // Block ads and analytics trackers that eat CPU and memory
-      else if (
-        url.includes('googleads') || 
-        url.includes('doubleclick') || 
-        url.includes('analytics') ||
-        url.includes('quantserve') ||
-        url.includes('scorecardresearch') ||
-        url.includes('tracking')
-      ) {
-        request.abort().catch(() => {});
-      }
-      else {
-        request.continue().catch(() => {});
-      }
-    });
-
     await page.evaluateOnNewDocument(`
       (function() {
         try {
