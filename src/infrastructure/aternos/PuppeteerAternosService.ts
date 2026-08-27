@@ -142,6 +142,10 @@ export class PuppeteerAternosService implements IAternosService {
         stopped = await this.clickIfPresent(page, sel, 'Stop button', 2000);
         if (stopped) {
           logger.info(`Clicked the Aternos Stop button (selector: ${sel}).`);
+          // Aternos often shows a sweetalert confirmation modal after clicking stop
+          try {
+            await this.clickIfPresent(page, '.sweet-alert .confirm, .sweet-alert .btn-danger, #confirm', 'Confirm Stop modal button', 3000);
+          } catch {}
           break;
         }
       }
