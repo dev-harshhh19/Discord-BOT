@@ -407,6 +407,12 @@ export class PuppeteerAternosService implements IAternosService {
     page.on('request', (request) => {
       const resourceType = request.resourceType();
       const url = request.url().toLowerCase();
+
+      // Cloudflare Turnstile strictly requires its own assets to pass the challenge
+      if (url.includes('cloudflare') || url.includes('turnstile')) {
+        request.continue().catch(() => {});
+        return;
+      }
       
       // Block heavy visual resources that the bot doesn't need to read DOM text
       if (['image', 'media', 'font', 'stylesheet'].includes(resourceType)) {
