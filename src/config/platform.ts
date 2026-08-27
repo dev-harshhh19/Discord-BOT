@@ -236,7 +236,7 @@ export function buildChromiumArgs(options: LaunchArgsOptions = {}): string[] {
   }
 
   if (platform.isLowMemory) {
-    args.push('--js-flags=--max-old-space-size=256', '--disable-extensions');
+    args.push('--js-flags=--max-old-space-size=128', '--disable-extensions');
   }
 
   const port = options.remoteDebuggingPort;

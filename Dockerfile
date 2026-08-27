@@ -82,5 +82,5 @@ EXPOSE 5176
 ENTRYPOINT ["dumb-init", "--"]
 
 # Start the compiled bot with Xvfb (virtual display) to bypass Cloudflare bot detection
-# Cap V8 heap to 256MB to prevent Docker OOM kills since os.totalmem() reports host RAM
-CMD ["xvfb-run", "-a", "node", "--max-old-space-size=256", "dist/index.js"]
+# Cap V8 heap to 128MB to prevent Docker OOM kills since os.totalmem() reports host RAM
+CMD ["xvfb-run", "-a", "node", "--max-old-space-size=128", "dist/index.js"]

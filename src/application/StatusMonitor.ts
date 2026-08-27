@@ -347,6 +347,13 @@ export class StatusMonitor {
       this.services.lastMinecraftStatus = mcStatus;
       this.services.serverOnlineAt ??= new Date();
       this.consecutiveAternosFailures = 0;
+      
+      // Memory Optimization: If the server is natively online, we do not need the heavy 
+      // headless browser idling in the background taking up 200MB of RAM.
+      if (this.services.aternos.destroySession) {
+        await this.services.aternos.destroySession();
+      }
+      
       return { state: ServerState.ONLINE, mcStatus };
     } catch (err) {
       // Below the debounce threshold: a single dropped packet must not flip the

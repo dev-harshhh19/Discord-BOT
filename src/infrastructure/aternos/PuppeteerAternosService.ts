@@ -293,6 +293,35 @@ export class PuppeteerAternosService implements IAternosService {
     }
   }
 
+  /**
+   * Forcibly destroys the current browser session to free memory, without permanently
+   * shutting down the service. The next call to ensureSession() will launch a new browser.
+   */
+  async destroySession(): Promise<void> {
+    await this.mutex.runExclusive(async () => {
+      if (!this.browser) return;
+      logger.info('Destroying browser session to free memory...');
+      const browser = this.browser;
+      this.browser = null;
+      this.page = null;
+      
+      try {
+        await Promise.race([browser.close(), sleep(5_000)]);
+      } catch {
+        // Ignore
+      }
+
+      try {
+        const proc = browser.process();
+        if (proc && proc.exitCode === null && !proc.killed) {
+          proc.kill('SIGKILL');
+        }
+      } catch {
+        // Ignore
+      }
+    });
+  }
+
   // ─── Session lifecycle (lock held) ──────────────────────────────────────────
 
   /** Returns a live page, creating or recreating the browser session as needed. */

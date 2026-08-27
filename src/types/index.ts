@@ -62,7 +62,9 @@ export interface IAternosService {
   /** True when the underlying session is live; surfaced on the health endpoint. */
   isReady?(): boolean;
   /** Releases the browser. Called during graceful shutdown. */
-  close?(): Promise<void>;
+  close(): Promise<void>;
+  /** Frees memory by killing the browser session when idle. */
+  destroySession?(): Promise<void>;
 }
 
 export interface IMinecraftService {
