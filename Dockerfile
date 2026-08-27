@@ -38,6 +38,7 @@ ENV PUPPETEER_HEADLESS=false
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     xvfb \
+    xauth \
     dumb-init \
     fonts-liberation \
     fonts-noto-color-emoji \
