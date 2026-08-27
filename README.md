@@ -139,9 +139,9 @@ Complete step-by-step guide available in [TERMUX_GUIDE.md](./TERMUX_GUIDE.md).
 ```bash
 # In Termux:
 pkg update && pkg install -y nodejs git chromium x11-repo xvfb
-git clone https://github.com/dev-harshhh19/Discord-BOT.git
+git clone -b termux https://github.com/dev-harshhh19/Discord-BOT.git
 cd Discord-BOT
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install
+npm install
 cp .env.example .env
 # Set PUPPETEER_EXECUTABLE_PATH=/data/data/com.termux/files/usr/bin/chromium-browser
 xvfb-run -a npm run dev

@@ -48,7 +48,7 @@ pkg install nodejs git chromium make python xvfb -y
 ## 3. Clone the Repository
 
 ```bash
-git clone https://github.com/dev-harshhh19/Discord-BOT.git
+git clone -b termux https://github.com/dev-harshhh19/Discord-BOT.git
 cd Discord-BOT
 ```
 
@@ -59,11 +59,11 @@ cd Discord-BOT
 Prevent Puppeteer from downloading its incompatible Chromium binary:
 
 ```bash
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install
+npm install
+```
 
 # Build the TypeScript project
 npm run build
-```
 
 ---
 
