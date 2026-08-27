@@ -31,11 +31,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PUPPETEER_HEADLESS=false
 
 # Install native Chromium, dumb-init, and essential system fonts/libraries
 # Debian Bookworm provides native 'chromium' for both amd64 and arm64.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
+    xvfb \
     dumb-init \
     fonts-liberation \
     fonts-noto-color-emoji \
@@ -79,5 +81,5 @@ EXPOSE 5176
 # Use dumb-init to properly handle UNIX process signals and reap zombie Chromium forks
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start the compiled bot
-CMD ["node", "dist/index.js"]
+# Start the compiled bot with Xvfb (virtual display) to bypass Cloudflare bot detection
+CMD ["xvfb-run", "-a", "node", "dist/index.js"]
