@@ -48,7 +48,7 @@ pkg install nodejs git chromium make python xvfb -y
 ## 3. Clone the Repository
 
 ```bash
-git clone https://github.com/dev-harshhh19/Discord-BOT.git
+git clone -b termux https://github.com/dev-harshhh19/Discord-BOT.git
 cd Discord-BOT
 ```
 
