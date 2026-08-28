@@ -89,7 +89,10 @@ function detectPlatform(): PlatformInfo {
     isRoot: typeof process.getuid === 'function' && process.getuid() === 0,
     arch: process.arch,
     totalMemoryMb,
-    isLowMemory: isDocker || (totalMemoryMb > 0 && totalMemoryMb < 2048),
+    isLowMemory:
+      process.env['PUPPETEER_LOW_MEMORY'] === 'true' ||
+      isDocker ||
+      (totalMemoryMb > 0 && totalMemoryMb < 2048),
     hasDisplay:
       process.platform === 'win32' ||
       process.platform === 'darwin' ||
@@ -236,7 +239,13 @@ export function buildChromiumArgs(options: LaunchArgsOptions = {}): string[] {
   }
 
   if (platform.isLowMemory) {
-    args.push('--js-flags=--max-old-space-size=128', '--disable-extensions');
+    args.push(
+      '--js-flags=--max-old-space-size=128', 
+      '--disable-extensions',
+      '--disable-site-isolation-trials',
+      '--renderer-process-limit=1',
+      '--disable-features=SitePerProcess,Translate,OptimizationHints,MediaRouter,DialMediaRouteProvider,ProcessPeeping'
+    );
   }
 
   const port = options.remoteDebuggingPort;
