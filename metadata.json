@@ -1,0 +1,6 @@
+{
+  "name": "TomMC-SMP Server Telemetry & Bot Hub",
+  "description": "TomMC-SMP Minecraft Server Management Dashboard, Discord Bot Telemetry, and Role Control Hub.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -6,10 +6,11 @@ import { describeLogDestination, logger } from './infrastructure/logger/WinstonL
 import { PuppeteerAternosService } from './infrastructure/aternos/PuppeteerAternosService';
 import { CraftpingService } from './infrastructure/minecraft/CraftpingService';
 import { installSignalHandlers, onShutdown, shutdown } from './infrastructure/lifecycle/shutdown';
-import { BotCommand, ServerState, ServiceContainer } from './types';
+import { BotCommand, MinecraftStatus, ServerState, ServiceContainer } from './types';
 import { onReady } from './presentation/events/ready';
 import { createInteractionHandler } from './presentation/events/interactionCreate';
 import { startWebServer } from './presentation/web/server';
+import { StatusMonitor } from './application/StatusMonitor';
 
 import { startCommand } from './presentation/commands/start';
 import { stopCommand } from './presentation/commands/stop';
@@ -123,22 +124,35 @@ async function main(): Promise<void> {
     logger.warn(`Discord client warning: ${message}`);
   });
 
-  logger.info('Logging in to Discord...');
-  try {
-    await client.login(config.discord.token);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.includes('disallowed intents')) {
-      logger.error(
-        'Discord rejected the requested gateway intents. Enable "Server Members Intent" ' +
-          'in the Developer Portal, or set WEB_EXPOSE_MEMBERS=false.',
-      );
-    } else if (message.includes('TOKEN_INVALID') || message.includes('invalid token')) {
-      logger.error('DISCORD_BOT_TOKEN was rejected. Regenerate it in the Developer Portal.');
-    } else {
-      logger.error(`Discord login failed: ${message}`);
+  const monitor = new StatusMonitor(services, client);
+  services.forcePoll = (): void => monitor.forcePoll();
+  services.forceRefresh = (): Promise<{ state: ServerState; mcStatus: MinecraftStatus | null }> =>
+    monitor.forceRefresh();
+  services.beginLaunchWatch = (): void => monitor.beginLaunchWatch();
+  onShutdown('status monitor', () => monitor.stop());
+  monitor.start();
+
+  if (config.discord.token && config.discord.token !== 'your_discord_bot_token_here') {
+    logger.info('Logging in to Discord...');
+    try {
+      await client.login(config.discord.token);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('disallowed intents')) {
+        logger.error(
+          'Discord rejected the requested gateway intents. Enable "Server Members Intent" ' +
+            'in the Developer Portal, or set WEB_EXPOSE_MEMBERS=false.',
+        );
+      } else if (message.includes('TOKEN_INVALID') || message.includes('invalid token')) {
+        logger.error('DISCORD_BOT_TOKEN was rejected. Web dashboard is active in standalone mode.');
+      } else {
+        logger.error(`Discord login failed: ${message}`);
+      }
+      logger.warn('Discord bot is offline; web dashboard is running on port 3000.');
     }
-    await shutdown('login failure', 1);
+  } else {
+    logger.info('DISCORD_BOT_TOKEN is not configured or is placeholder; Discord bot in standby mode.');
+    logger.info('Web dashboard is online and fully accessible on port 3000.');
   }
 }
 

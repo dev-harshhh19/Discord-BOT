@@ -118,23 +118,33 @@ export class CraftpingService implements IMinecraftService {
       this.consecutiveFailures++;
       const threshold = config.minecraft.failureThreshold;
 
-      logger.debug(
-        `Ping failed (${this.consecutiveFailures}/${threshold}): ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
+      const isOfflineProxy =
+        err instanceof MinecraftQueryError &&
+        err.message.includes('Aternos proxy reports the server is not ready/offline');
+
+      if (isOfflineProxy) {
+        logger.debug(
+          `Minecraft ping: server is offline (${this.consecutiveFailures}/${threshold}).`,
+        );
+      } else {
+        logger.debug(
+          `Minecraft ping inactive (${this.consecutiveFailures}/${threshold}): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
 
       if (this.consecutiveFailures < threshold) {
         // Signalled via a typed property rather than message text, so callers
         // do not have to string-match to distinguish "not yet sure" from "down".
         throw new MinecraftQueryError(
-          `Ping failed (${this.consecutiveFailures}/${threshold}); below the failure threshold.`,
+          `Server offline (${this.consecutiveFailures}/${threshold}); below the failure threshold.`,
           true,
         );
       }
 
       throw new MinecraftQueryError(
-        `${address}:${port} was unreachable across ${threshold} consecutive attempts.`,
+        `${address}:${port} is offline or unreachable across ${threshold} consecutive attempts.`,
       );
     }
   }

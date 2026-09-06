@@ -1,0 +1,42 @@
+name: Deploy 24/7 to VPS
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Cloud VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_PRIVATE_KEY }}
+          script: |
+            set -e
+            APP_DIR="/root/Discord-BOT"
+            if [ ! -d "$APP_DIR" ]; then
+              git clone https://github.com/${{ github.repository }}.git "$APP_DIR"
+            fi
+            cd "$APP_DIR"
+            git pull origin ${{ github.ref_name }}
+            
+            # If using Docker Compose for 24/7 uptime:
+            if command -v docker &> /dev/null && command -v docker-compose &> /dev/null || docker compose version &> /dev/null; then
+              echo "Starting with Docker Compose..."
+              docker compose down || true
+              docker compose up -d --build
+            else
+              echo "Starting with Node & PM2..."
+              npm ci --production=false
+              npm run build
+              command -v pm2 &> /dev/null || npm install -g pm2
+              pm2 restart aternos-bot || pm2 start dist/index.js --name aternos-bot
+              pm2 save
+            fi

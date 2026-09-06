@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
@@ -142,7 +144,9 @@ export class PuppeteerAternosService implements IAternosService {
           // Aternos often shows a sweetalert confirmation modal after clicking stop
           try {
             await this.clickIfPresent(page, '.sweet-alert .confirm, .sweet-alert .btn-danger, #confirm', 'Confirm Stop modal button', 3000);
-          } catch {}
+          } catch {
+            // sweetalert confirmation modal is optional
+          }
           break;
         }
       }
@@ -356,6 +360,16 @@ export class PuppeteerAternosService implements IAternosService {
 
     let browser: Browser;
     try {
+      if (fs.existsSync(config.browser.userDataDir)) {
+        for (const file of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+          const filePath = path.join(config.browser.userDataDir, file);
+          try {
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          } catch {
+            // Ignore lock deletion failures
+          }
+        }
+      }
       browser = await puppeteer.launch({
         executablePath: config.browser.executablePath,
         headless: config.browser.headless,
@@ -449,12 +463,34 @@ export class PuppeteerAternosService implements IAternosService {
 
     page.on('console', (msg) => {
       const type = msg.type();
+      const text = msg.text();
+      // Filter out third-party ad network, analytics, and benign 403 resource errors from external scripts
+      if (
+        text.includes('Failed to load resource') ||
+        text.includes('status of 403') ||
+        text.includes('status of 404') ||
+        text.includes('pubads') ||
+        text.includes('googletag') ||
+        text.includes('doubleclick') ||
+        text.includes('google-analytics') ||
+        text.includes('gpt-message')
+      ) {
+        return;
+      }
       if (type === 'error' || type === 'warn') {
-        logger.debug(`[browser] ${type}: ${msg.text()}`);
+        logger.debug(`[browser] ${type}: ${text}`);
       }
     });
     page.on('pageerror', (err) => {
-      logger.debug(`[browser] uncaught: ${err.message}`);
+      const message = err.message;
+      if (
+        message.includes('status of 403') ||
+        message.includes('Failed to load resource') ||
+        message.includes('google')
+      ) {
+        return;
+      }
+      logger.debug(`[browser] uncaught: ${message}`);
     });
   }
 

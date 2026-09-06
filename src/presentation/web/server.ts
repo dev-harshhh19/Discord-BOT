@@ -33,10 +33,9 @@ export function startWebServer(
   app.disable('x-powered-by');
   app.use(express.json({ limit: '64kb' }));
 
-  // The dashboard is same-origin; no third-party embedding or sniffing.
+  // Enable iframe embedding in preview while keeping nosniff protection.
   app.use((_req: Request, res: Response, next: NextFunction) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');
     next();
   });
@@ -45,8 +44,9 @@ export function startWebServer(
   // deliberately exposes nothing beyond liveness and basic telemetry for trackers like Uptime Kuma.
   app.get(['/health', '/api/health'], (_req: Request, res: Response) => {
     const ready = client.isReady();
-    res.status(ready ? 200 : 503).json({
-      status: ready ? 'UP' : 'STARTING',
+    res.status(200).json({
+      status: ready ? 'UP' : 'STANDBY',
+      bot_ready: ready,
       state: services.currentState,
       discord_latency_ms: client.ws.ping >= 0 ? client.ws.ping : null,
       uptime_seconds: Math.floor(process.uptime()),

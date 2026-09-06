@@ -32,12 +32,15 @@ export async function onReady(
     logger.error(`Could not initialise the dashboard: ${String(err)}`);
   });
 
-  const monitor = new StatusMonitor(services, client);
-  services.forcePoll = (): void => monitor.forcePoll();
-  services.forceRefresh = (): Promise<{ state: ServerState; mcStatus: MinecraftStatus | null }> =>
-    monitor.forceRefresh();
-  services.beginLaunchWatch = (): void => monitor.beginLaunchWatch();
-  onShutdown('status monitor', () => monitor.stop());
+  if (!services.forceRefresh) {
+    const monitor = new StatusMonitor(services, client);
+    services.forcePoll = (): void => monitor.forcePoll();
+    services.forceRefresh = (): Promise<{ state: ServerState; mcStatus: MinecraftStatus | null }> =>
+      monitor.forceRefresh();
+    services.beginLaunchWatch = (): void => monitor.beginLaunchWatch();
+    onShutdown('status monitor', () => monitor.stop());
+    monitor.start();
+  }
 
   // Warm the browser session before polling starts, so the first poll does not
   // pay the cost of a cold Chromium launch. A failure here is not fatal: the
@@ -51,7 +54,6 @@ export async function onReady(
     }
   }
 
-  monitor.start();
   logger.info('Bot is fully operational.');
 }
 

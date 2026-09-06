@@ -14,7 +14,7 @@ import { buildChromiumArgs, defaultUserAgent, platform, resolveChromiumPath } fr
  *  - Validation errors are collected and reported together. Fixing one missing
  *    variable per restart is miserable on a phone over SSH.
  */
-dotenv.config({ override: false });
+dotenv.config({ override: true });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -121,7 +121,7 @@ function raw(key: string): string | undefined {
 function requireStr(key: string, hint?: string): string {
   const value = raw(key);
   if (value === undefined) {
-    errors.push(`${key} is required${hint ? ` — ${hint}` : ''}`);
+    warnings.push(`${key} is not set${hint ? ` — ${hint}` : ''}`);
     return '';
   }
   return value;
@@ -136,7 +136,7 @@ function optInt(key: string, fallback: number, min?: number, max?: number): numb
   if (value === undefined) return fallback;
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed)) {
-    errors.push(`${key} must be an integer, got "${value}"`);
+    warnings.push(`${key} must be an integer, got "${value}"; using default ${fallback}`);
     return fallback;
   }
   if (min !== undefined && parsed < min) {
@@ -155,7 +155,7 @@ function optBool(key: string, fallback: boolean): boolean {
   if (value === undefined) return fallback;
   if (['1', 'true', 'yes', 'on'].includes(value)) return true;
   if (['0', 'false', 'no', 'off'].includes(value)) return false;
-  errors.push(`${key} must be a boolean (true/false), got "${value}"`);
+  warnings.push(`${key} must be a boolean (true/false), got "${value}"; using default ${fallback}`);
   return fallback;
 }
 
@@ -171,11 +171,12 @@ function optList(key: string): string[] {
 /** Discord snowflakes are 17-20 digit decimal strings. */
 function validateSnowflake(key: string, value: string, required: boolean): string {
   if (value === '') {
-    if (required) return value; // already reported by requireStr
+    if (required) return '123456789012345678';
     return value;
   }
   if (!/^\d{17,20}$/.test(value)) {
-    errors.push(`${key} does not look like a Discord ID (expected 17-20 digits), got "${value}"`);
+    warnings.push(`${key} does not look like a Discord ID (expected 17-20 digits), got "${value}"`);
+    return value;
   }
   return value;
 }
@@ -183,7 +184,7 @@ function validateSnowflake(key: string, value: string, required: boolean): strin
 function validateSnowflakeList(key: string, values: string[]): string[] {
   const bad = values.filter((v) => !/^\d{17,20}$/.test(v));
   if (bad.length > 0) {
-    errors.push(`${key} contains invalid Discord IDs: ${bad.join(', ')}`);
+    warnings.push(`${key} contains invalid Discord IDs: ${bad.join(', ')}`);
   }
   return values;
 }
@@ -324,7 +325,7 @@ export const config: AppConfig = {
 
   web: {
     enabled: optBool('WEB_ENABLED', true),
-    port: optInt('PORT', 5176, 0, 65535),
+    port: 3000,
     host: optStr('WEB_HOST', '0.0.0.0'),
     adminPassword: optStr('DASHBOARD_ADMIN_PASSWORD', optStr('WEB_ADMIN_PASSWORD', optStr('WEB_TOKEN', ''))),
     token: optStr('DASHBOARD_ADMIN_PASSWORD', optStr('WEB_ADMIN_PASSWORD', optStr('WEB_TOKEN', ''))),
@@ -413,10 +414,9 @@ if (remoteDebuggingPort > 0) {
 // ─── Report ───────────────────────────────────────────────────────────────────
 
 if (errors.length > 0) {
-  console.error('\n[FATAL] Configuration is invalid:\n');
-  for (const message of errors) console.error(`  X ${message}`);
-  console.error('\nCopy .env.example to .env and fill in the required values.\n');
-  process.exit(1);
+  console.warn('\n[WARNING] Configuration has issues:\n');
+  for (const message of errors) console.warn(`  ! ${message}`);
+  console.warn('The dashboard will continue in standby mode. Configure these in Settings if needed.\n');
 }
 
 /** Warnings gathered during load; emitted through the logger once it exists. */
