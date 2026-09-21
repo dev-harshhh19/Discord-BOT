@@ -464,7 +464,7 @@ export class PuppeteerAternosService implements IAternosService {
     page.on('console', (msg) => {
       const type = msg.type();
       const text = msg.text();
-      // Filter out third-party ad network, analytics, and benign 403 resource errors from external scripts
+      // Filter out third-party ad network, analytics, and benign 403 resource / CORS errors from external scripts
       if (
         text.includes('Failed to load resource') ||
         text.includes('status of 403') ||
@@ -473,7 +473,12 @@ export class PuppeteerAternosService implements IAternosService {
         text.includes('googletag') ||
         text.includes('doubleclick') ||
         text.includes('google-analytics') ||
-        text.includes('gpt-message')
+        text.includes('gpt-message') ||
+        text.includes('adtrafficquality') ||
+        text.includes('sodar') ||
+        text.includes('CORS') ||
+        text.includes('blocked by CORS policy') ||
+        text.includes('postMessage')
       ) {
         return;
       }
@@ -486,7 +491,11 @@ export class PuppeteerAternosService implements IAternosService {
       if (
         message.includes('status of 403') ||
         message.includes('Failed to load resource') ||
-        message.includes('google')
+        message.includes('google') ||
+        message.includes('adtrafficquality') ||
+        message.includes('sodar') ||
+        message.includes('CORS') ||
+        message.includes('postMessage')
       ) {
         return;
       }

@@ -150,7 +150,8 @@
 }
 
 .auth-btn.admin:hover {
-  background-color: #1e3a8a;
+  background-color: var(--color-primary-hover);
+  color: #ffffff;
 }
 
 /* Navigation Tabs */
@@ -338,7 +339,8 @@
 }
 
 .action-btn.start:hover:not(:disabled) {
-  background-color: #065f46;
+  background-color: var(--color-online);
+  color: #ffffff;
 }
 
 .action-btn.stop {
@@ -348,7 +350,8 @@
 }
 
 .action-btn.stop:hover:not(:disabled) {
-  background-color: #5c0f0f;
+  background-color: var(--color-danger-hover);
+  color: #ffffff;
 }
 
 .action-btn.restart {
@@ -358,7 +361,8 @@
 }
 
 .action-btn.restart:hover:not(:disabled) {
-  background-color: #1e3a8a;
+  background-color: var(--color-primary-hover);
+  color: #ffffff;
 }
 
 .action-btn.poll {
@@ -392,9 +396,9 @@
 }
 
 .notice-banner.warning {
-  background-color: #3b2006;
+  background-color: var(--color-starting-bg);
   border-color: var(--color-starting);
-  color: #fde68a;
+  color: var(--color-starting-text);
 }
 
 .notice-banner .icon {
@@ -531,33 +535,33 @@ tr:hover td {
 }
 
 .badge.owner {
-  background-color: #3b0764;
-  border-color: #9333ea;
-  color: #d8b4fe;
+  background-color: #F3E8FF;
+  border-color: #D8B4FE;
+  color: #6B21A8;
 }
 
 .badge.admin {
-  background-color: #172554;
-  border-color: #2563eb;
-  color: #93c5fd;
+  background-color: var(--color-primary-surface);
+  border-color: var(--border-default);
+  color: var(--color-primary-text);
 }
 
 .badge.minecraft {
-  background-color: #064e3b;
-  border-color: #059669;
-  color: #6ee7b7;
+  background-color: #DFF1F1;
+  border-color: #BBD5DA;
+  color: #14532D;
 }
 
 .badge.trusted {
-  background-color: #1e293b;
-  border-color: #475569;
-  color: #cbd5e1;
+  background-color: #EDF5F6;
+  border-color: #BBD5DA;
+  color: #3A4F54;
 }
 
 .badge.everyone {
-  background-color: #111827;
-  border-color: #1f2937;
-  color: #9ca3af;
+  background-color: #F5F5F5;
+  border-color: #D6E4E7;
+  color: #5C747A;
 }
 
 .role-tag {
@@ -574,8 +578,8 @@ tr:hover td {
 
 /* Terminal & Logs */
 .terminal-window {
-  background-color: #070a0f;
-  border: 1px solid var(--border-subtle);
+  background-color: #142226;
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
@@ -583,8 +587,8 @@ tr:hover td {
 }
 
 .terminal-bar {
-  background-color: var(--bg-surface-elevated);
-  border-bottom: 1px solid var(--border-subtle);
+  background-color: #1E3136;
+  border-bottom: 1px solid #2B454B;
   padding: 0.5rem 0.875rem;
   display: flex;
   align-items: center;
@@ -594,7 +598,7 @@ tr:hover td {
 .terminal-title {
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: #A8C4C9;
 }
 
 .terminal-actions {
@@ -980,14 +984,14 @@ tr:hover td {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem;
-  background-color: #1e1f22;
-  border: 1px solid #2b2d31;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   padding: 0.5rem 0.75rem;
 }
 
 .cmd-slash {
-  color: #5865f2;
+  color: var(--color-primary);
   font-weight: 700;
   font-family: var(--font-mono);
   font-size: 0.9375rem;
@@ -997,26 +1001,27 @@ tr:hover td {
 .cmd-param-pill {
   display: inline-flex;
   align-items: center;
-  background-color: #2b2d31;
+  background-color: var(--bg-surface-active);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 0.2rem 0.5rem;
   font-family: var(--font-mono);
   font-size: 0.8125rem;
-  color: #dbdee1;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .cmd-input-preview {
   display: inline-flex;
   align-items: center;
-  flex: 1;
+  flex-1;
   min-width: 150px;
 }
 
 .cmd-input-preview input {
-  background-color: #111214;
-  border: 1px solid #35363c;
-  color: #f2f3f5;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 0.8125rem;
   padding: 0.35rem 0.6rem;
@@ -1027,8 +1032,7 @@ tr:hover td {
 }
 
 .cmd-input-preview input:focus {
-  border-color: #5865f2;
-  box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.2);
+  border-color: var(--border-focus);
 }
 
 .cmd-hint-text {
@@ -1114,3 +1118,86 @@ tr:hover td {
   display: inline-block;
   margin-right: 0.25rem;
 }
+
+/* ==========================================================================
+   STATUS CARD & D3 LATENCY CHART COMPONENTS
+   ========================================================================== */
+
+.status-card-component {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast);
+}
+
+.status-card-component:hover {
+  border-color: var(--border-default);
+}
+
+.health-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.875rem;
+}
+
+.health-metric-tile {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.85rem;
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
+}
+
+.health-metric-tile:hover {
+  border-color: var(--border-default);
+  transform: translateY(-1px);
+}
+
+.latency-chart-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.latency-filter-group .filter-btn {
+  transition: all var(--transition-fast);
+}
+
+.latency-filter-group .filter-btn:hover {
+  color: var(--text-primary) !important;
+}
+
+.latency-chart-stage {
+  position: relative;
+  width: 100%;
+  height: 260px;
+  min-height: 240px;
+}
+
+.d3-chart-tooltip {
+  position: absolute;
+  display: none;
+  pointer-events: none;
+  background: #172326;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: #FFFFFF;
+  box-shadow: var(--shadow-lg);
+  z-index: 20;
+  white-space: nowrap;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+

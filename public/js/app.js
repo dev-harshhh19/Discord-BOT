@@ -134,11 +134,32 @@ class App {
   }
 
   async fetchStatus() {
-    const res = await api.getStatus();
+    const [res, healthRes] = await Promise.all([
+      api.getStatus(),
+      api.getHealth().catch(() => null),
+    ]);
+
     if (res.success) {
       store.update({
         status: res,
         isAdmin: res.role === 'admin' || store.getState().isAdmin,
+        ...(healthRes && healthRes.status ? { health: healthRes } : {}),
+      });
+
+      // Record telemetry data point for real-time D3 visualization
+      const serverLatency = res.server?.latency !== null && res.server?.latency !== undefined
+        ? Number(res.server.latency)
+        : null;
+      const botPing = res.bot?.ping !== null && res.bot?.ping !== undefined && res.bot.ping >= 0
+        ? Number(res.bot.ping)
+        : (healthRes?.discord_latency_ms ?? null);
+
+      store.recordTelemetry({
+        timestamp: Date.now(),
+        serverLatency,
+        botPing,
+        state: res.server?.state || 'UNKNOWN',
+        memoryMb: res.bot?.memory?.rssMB || healthRes?.memory_mb,
       });
     }
   }

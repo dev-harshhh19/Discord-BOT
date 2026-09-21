@@ -67,6 +67,7 @@ export const api = {
 
   // Status & Telemetry
   getStatus: () => apiRequest('/api/status'),
+  getHealth: () => apiRequest('/api/health'),
   getMembers: () => apiRequest('/api/members'),
   getAccessControl: () => apiRequest('/api/access-control'),
   getLogs: (limit = 100) => apiRequest(`/api/logs?limit=${limit}`),

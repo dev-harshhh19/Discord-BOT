@@ -2,6 +2,8 @@ import { getIcon } from '../icons.js';
 import { store } from '../state.js';
 import { api } from '../api.js';
 import { showToast } from './toast.js';
+import { renderStatusCard } from './statusCard.js';
+import { renderLatencyChart } from './latencyChart.js';
 
 /**
  * Overview & Telemetry Dashboard View Component
@@ -23,7 +25,32 @@ export function renderOverview(container) {
   const playersMax = server.players?.max ?? 0;
   const playerList = server.players?.list || [];
 
+  // Check if already mounted
+  const existingMount = container.querySelector('#overview-status-card-mount');
+  if (existingMount) {
+    updateOverviewDOM(container, {
+      server,
+      bot,
+      isAdmin,
+      serverState,
+      isOnline,
+      isStarting,
+      isStopping,
+      playersOnline,
+      playersMax,
+      playerList,
+      fullAddress,
+    });
+    return;
+  }
+
   container.innerHTML = `
+    <!-- Reusable Health & Uptime Status Card Component -->
+    <div id="overview-status-card-mount"></div>
+
+    <!-- Real-time D3 Latency & Ping Chart Component -->
+    <div id="overview-latency-chart-mount"></div>
+
     <!-- Top Metrics Row -->
     <div class="stats-grid">
       <div class="stat-card">
@@ -32,14 +59,14 @@ export function renderOverview(container) {
         </div>
         <div class="stat-content">
           <div class="stat-label">Server State</div>
-          <div class="stat-value" style="color: ${isOnline ? 'var(--color-online-text)'
+          <div class="stat-value" id="overview-stat-server-state" style="color: ${isOnline ? 'var(--color-online-text)'
       : isStarting ? 'var(--color-starting-text)'
         : isStopping ? 'var(--color-danger-text)'
           : 'var(--text-muted)'
     };">
             ${escapeHtml(serverState)}
           </div>
-          <div class="stat-subtext">${server.uptimeFormatted ? `Online for ${server.uptimeFormatted}` : 'Currently offline'}</div>
+          <div class="stat-subtext" id="overview-stat-server-subtext">${server.uptimeFormatted ? `Online for ${server.uptimeFormatted}` : 'Currently offline'}</div>
         </div>
       </div>
 
@@ -49,8 +76,8 @@ export function renderOverview(container) {
         </div>
         <div class="stat-content">
           <div class="stat-label">Players Online</div>
-          <div class="stat-value">${playersOnline} <span style="font-size: 0.875rem; color: var(--text-dim); font-weight: 500;">/ ${playersMax}</span></div>
-          <div class="stat-subtext">${playersOnline > 0 ? `${playersOnline} active in realm` : 'No players currently online'}</div>
+          <div class="stat-value" id="overview-stat-players">${playersOnline} <span style="font-size: 0.875rem; color: var(--text-dim); font-weight: 500;">/ ${playersMax}</span></div>
+          <div class="stat-subtext" id="overview-stat-players-subtext">${playersOnline > 0 ? `${playersOnline} active in realm` : 'No players currently online'}</div>
         </div>
       </div>
 
@@ -60,8 +87,8 @@ export function renderOverview(container) {
         </div>
         <div class="stat-content">
           <div class="stat-label">Network Latency</div>
-          <div class="stat-value">${server.latency !== null && server.latency !== undefined ? `${server.latency}ms` : '--'}</div>
-          <div class="stat-subtext">Bot Gateway Ping: ${bot.ping ?? '--'}ms</div>
+          <div class="stat-value" id="overview-stat-latency">${server.latency !== null && server.latency !== undefined ? `${server.latency}ms` : '--'}</div>
+          <div class="stat-subtext" id="overview-stat-latency-subtext">Bot Gateway Ping: ${bot.ping ?? '--'}ms</div>
         </div>
       </div>
 
@@ -71,8 +98,8 @@ export function renderOverview(container) {
         </div>
         <div class="stat-content">
           <div class="stat-label">Bot Process Uptime</div>
-          <div class="stat-value">${formatSeconds(bot.processUptimeSeconds || 0)}</div>
-          <div class="stat-subtext">RSS: ${bot.memory?.rssMB ?? '--'} MB | Heap: ${bot.memory?.heapUsedMB ?? '--'} MB</div>
+          <div class="stat-value" id="overview-stat-uptime">${formatSeconds(bot.processUptimeSeconds || 0)}</div>
+          <div class="stat-subtext" id="overview-stat-uptime-subtext">RSS: ${bot.memory?.rssMB ?? '--'} MB | Heap: ${bot.memory?.heapUsedMB ?? '--'} MB</div>
         </div>
       </div>
     </div>
@@ -281,6 +308,22 @@ export function renderOverview(container) {
   container.querySelector('#action-poll-btn')?.addEventListener('click', async () => {
     await handleServerAction('poll', api.pollServer);
   });
+
+  // Mount Reusable Status Card Component
+  const statusMount = container.querySelector('#overview-status-card-mount');
+  if (statusMount) {
+    renderStatusCard(statusMount, {
+      autoRefresh: true,
+      refreshInterval: 5000,
+      liveTicker: true,
+    });
+  }
+
+  // Mount Real-Time D3 Latency Chart Component
+  const chartMount = container.querySelector('#overview-latency-chart-mount');
+  if (chartMount) {
+    renderLatencyChart(chartMount);
+  }
 }
 
 async function handleServerAction(actionName, apiFn) {
@@ -316,3 +359,86 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+function updateOverviewDOM(container, data) {
+  const {
+    server,
+    bot,
+    isAdmin,
+    serverState,
+    isOnline,
+    isStarting,
+    isStopping,
+    playersOnline,
+    playersMax,
+  } = data;
+
+  const stateEl = container.querySelector('#overview-stat-server-state');
+  if (stateEl) {
+    stateEl.textContent = serverState;
+    stateEl.style.color = isOnline
+      ? 'var(--color-online-text)'
+      : isStarting
+      ? 'var(--color-starting-text)'
+      : isStopping
+      ? 'var(--color-danger-text)'
+      : 'var(--text-muted)';
+  }
+
+  const serverSub = container.querySelector('#overview-stat-server-subtext');
+  if (serverSub) {
+    serverSub.textContent = server.uptimeFormatted
+      ? `Online for ${server.uptimeFormatted}`
+      : 'Currently offline';
+  }
+
+  const playersEl = container.querySelector('#overview-stat-players');
+  if (playersEl) {
+    playersEl.innerHTML = `${playersOnline} <span style="font-size: 0.875rem; color: var(--text-dim); font-weight: 500;">/ ${playersMax}</span>`;
+  }
+  const playersSub = container.querySelector('#overview-stat-players-subtext');
+  if (playersSub) {
+    playersSub.textContent = playersOnline > 0 ? `${playersOnline} active in realm` : 'No players currently online';
+  }
+
+  const latencyEl = container.querySelector('#overview-stat-latency');
+  if (latencyEl) {
+    latencyEl.textContent = server.latency !== null && server.latency !== undefined ? `${server.latency}ms` : '--';
+  }
+  const latencySub = container.querySelector('#overview-stat-latency-subtext');
+  if (latencySub) {
+    latencySub.textContent = `Bot Gateway Ping: ${bot.ping ?? '--'}ms`;
+  }
+
+  const uptimeEl = container.querySelector('#overview-stat-uptime');
+  if (uptimeEl) {
+    uptimeEl.textContent = formatSeconds(bot.processUptimeSeconds || 0);
+  }
+  const uptimeSub = container.querySelector('#overview-stat-uptime-subtext');
+  if (uptimeSub) {
+    uptimeSub.textContent = `RSS: ${bot.memory?.rssMB ?? '--'} MB | Heap: ${bot.memory?.heapUsedMB ?? '--'} MB`;
+  }
+
+  const startBtn = container.querySelector('#action-start-btn');
+  if (startBtn) startBtn.disabled = !isAdmin || isOnline || isStarting;
+
+  const stopBtn = container.querySelector('#action-stop-btn');
+  if (stopBtn) stopBtn.disabled = !isAdmin || !isOnline;
+
+  const restartBtn = container.querySelector('#action-restart-btn');
+  if (restartBtn) restartBtn.disabled = !isAdmin || isStarting;
+
+  const pollBtn = container.querySelector('#action-poll-btn');
+  if (pollBtn) pollBtn.disabled = !isAdmin;
+
+  const statusMount = container.querySelector('#overview-status-card-mount');
+  if (statusMount) {
+    renderStatusCard(statusMount);
+  }
+
+  const chartMount = container.querySelector('#overview-latency-chart-mount');
+  if (chartMount) {
+    renderLatencyChart(chartMount);
+  }
+}
+

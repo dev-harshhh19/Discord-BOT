@@ -1,73 +1,66 @@
 /* ==========================================================================
-   TomMC-SMP BOT DASHBOARD - DYNAMIC COLOR THEME (NO GRADIENTS)
+   TomMC-SMP BOT DASHBOARD - MATURE COLOR PALETTE
+   Palette Reference: https://colorhunt.co/palette/f5f5f5dff1f1bbd5daff0000
+   #F5F5F5 (Soft Base) | #DFF1F1 (Pale Ice Mint) | #BBD5DA (Slate Seafoam) | #FF0000 (Signal Red)
    ========================================================================== */
 
 :root {
-  /* Core Hues for dynamic theming */
-  --hue-base: 222;
-  --hue-primary: 221;
-  --hue-success: 160;
-  --hue-warning: 38;
-  --hue-danger: 0;
-  --hue-info: 199;
-  --hue-purple: 258;
+  /* Surface & Canvas (Light mature system) */
+  --bg-app: #F5F5F5;
+  --bg-surface: #FFFFFF;
+  --bg-surface-elevated: #EDF5F6;
+  --bg-surface-active: #DFF1F1;
+  --bg-surface-subtle: #F3F8F9;
+  --bg-input: #FFFFFF;
 
-  /* Surface & Backgrounds (Dynamic HSL Overlays) */
-  --bg-app: hsl(var(--hue-base), 47%, 5%);
-  --bg-surface: hsl(var(--hue-base), 39%, 10%);
-  --bg-surface-elevated: hsl(var(--hue-base), 33%, 14%);
-  --bg-surface-active: hsl(var(--hue-base), 30%, 18%);
-  --bg-surface-subtle: hsl(var(--hue-base), 37%, 12%);
-  --bg-input: hsl(var(--hue-base), 39%, 8%);
+  /* Borders & Dividers (Derived from #BBD5DA) */
+  --border-subtle: #D6E4E7;
+  --border-default: #BBD5DA;
+  --border-strong: #9FBEC5;
+  --border-focus: #235D69;
 
-  /* Borders & Dividers */
-  --border-subtle: hsl(var(--hue-base), 33%, 20%);
-  --border-default: hsl(var(--hue-base), 27%, 26%);
-  --border-strong: hsl(var(--hue-base), 26%, 32%);
-  --border-focus: hsl(var(--hue-primary), 83%, 53%);
-
-  /* Typography */
+  /* Typography (High contrast, accessible slate charcoal) */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Text Colors */
-  --text-primary: hsl(var(--hue-base), 60%, 98%);
-  --text-secondary: hsl(var(--hue-base), 24%, 65%);
-  --text-muted: hsl(var(--hue-base), 20%, 45%);
-  --text-dim: hsl(var(--hue-base), 19%, 35%);
-  --text-inverse: hsl(var(--hue-base), 47%, 5%);
+  --text-primary: #172326;
+  --text-secondary: #3A4F54;
+  --text-muted: #5C747A;
+  --text-dim: #839A9F;
+  --text-inverse: #FFFFFF;
 
-  /* Dynamic Brand & Semantic Colors (Strictly Solid) */
-  --color-primary: hsl(var(--hue-primary), 83%, 53%);
-  --color-primary-hover: hsl(var(--hue-primary), 76%, 48%);
-  --color-primary-surface: hsla(var(--hue-primary), 83%, 53%, 0.15);
-  --color-primary-text: hsl(var(--hue-primary), 90%, 75%);
+  /* Brand & Primary (Deep Nordic Slate-Teal harmonious with #BBD5DA / #DFF1F1) */
+  --color-primary: #235D69;
+  --color-primary-hover: #1A4953;
+  --color-primary-surface: #DFF1F1;
+  --color-primary-text: #194B55;
 
   /* Status Colors */
-  --color-online: hsl(var(--hue-success), 84%, 39%);
-  --color-online-bg: hsla(var(--hue-success), 84%, 39%, 0.15);
-  --color-online-text: hsl(var(--hue-success), 70%, 55%);
+  --color-online: #166534;
+  --color-online-bg: #DFF1F1;
+  --color-online-text: #14532D;
 
-  --color-offline: hsl(var(--hue-base), 24%, 45%);
-  --color-offline-bg: hsla(var(--hue-base), 24%, 45%, 0.15);
-  --color-offline-text: hsl(var(--hue-base), 24%, 65%);
+  --color-offline: #5C747A;
+  --color-offline-bg: #E6EDED;
+  --color-offline-text: #3A4F54;
 
-  --color-starting: hsl(var(--hue-warning), 92%, 50%);
-  --color-starting-bg: hsla(var(--hue-warning), 92%, 50%, 0.15);
-  --color-starting-text: hsl(var(--hue-warning), 96%, 60%);
+  --color-starting: #B45309;
+  --color-starting-bg: #FEF3C7;
+  --color-starting-text: #92400E;
 
-  --color-danger: hsl(var(--hue-danger), 84%, 60%);
-  --color-danger-hover: hsl(var(--hue-danger), 71%, 51%);
-  --color-danger-bg: hsla(var(--hue-danger), 84%, 60%, 0.15);
-  --color-danger-text: hsl(var(--hue-danger), 90%, 70%);
+  /* Signal Red & Critical Alert (Derived from #FF0000) */
+  --color-danger: #DC2626;
+  --color-danger-hover: #B91C1C;
+  --color-danger-bg: #FEE2E2;
+  --color-danger-text: #991B1B;
 
-  --color-info: hsl(var(--hue-info), 89%, 48%);
-  --color-info-bg: hsla(var(--hue-info), 89%, 48%, 0.15);
-  --color-info-text: hsl(var(--hue-info), 92%, 65%);
+  --color-info: #0284C7;
+  --color-info-bg: #E0F2FE;
+  --color-info-text: #0369A1;
 
-  --color-purple: hsl(var(--hue-purple), 90%, 66%);
-  --color-purple-bg: hsla(var(--hue-purple), 90%, 66%, 0.15);
-  --color-purple-text: hsl(var(--hue-purple), 94%, 75%);
+  --color-purple: #4F46E5;
+  --color-purple-bg: #EEF2FF;
+  --color-purple-text: #3730A3;
 
   /* Layout & Sizing */
   --max-width: 1280px;
@@ -77,11 +70,11 @@
   --radius-xl: 12px;
   --radius-full: 9999px;
 
-  /* Elevation Shadows (Subtle, crisp) */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
-  --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.6);
+  /* Elevation Shadows (Crisp, optical light-mode depth) */
+  --shadow-sm: 0 1px 3px 0 rgba(23, 35, 38, 0.05), 0 1px 2px 0 rgba(23, 35, 38, 0.03);
+  --shadow-md: 0 4px 6px -1px rgba(23, 35, 38, 0.07), 0 2px 4px -2px rgba(23, 35, 38, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(23, 35, 38, 0.08), 0 4px 6px -4px rgba(23, 35, 38, 0.04);
+  --shadow-modal: 0 20px 25px -5px rgba(23, 35, 38, 0.14), 0 8px 10px -6px rgba(23, 35, 38, 0.06);
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -96,7 +89,7 @@
 
 html {
   font-size: 16px;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
