@@ -3,16 +3,29 @@
  */
 
 const TOKEN_KEY = 'tikdi_admin_token';
+const THEME_KEY = 'tommc_theme';
 
 class StateStore {
   constructor() {
+    const savedTheme = localStorage.getItem(THEME_KEY);
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initialTheme = savedTheme === 'dark' || savedTheme === 'light' ? savedTheme : (prefersDark ? 'dark' : 'light');
+
+    // Sync DOM theme attributes immediately
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', initialTheme);
+      if (document.body) document.body.setAttribute('data-theme', initialTheme);
+    }
+
     this.state = {
       token: sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || '',
+      theme: initialTheme,
       isAdmin: false,
       authConfigured: true,
-      currentTab: 'landing',
+      currentTab: 'overview',
       status: null,
       health: null,
+      keepalive: null,
       telemetryHistory: [],
       minecraftPlayers: null,
       registeredPlayers: [],
@@ -30,6 +43,23 @@ class StateStore {
 
   getState() {
     return this.state;
+  }
+
+  setTheme(theme) {
+    const validTheme = theme === 'dark' ? 'dark' : 'light';
+    this.state.theme = validTheme;
+    try {
+      localStorage.setItem(THEME_KEY, validTheme);
+    } catch (_) {}
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', validTheme);
+      if (document.body) document.body.setAttribute('data-theme', validTheme);
+    }
+    this.notify();
+  }
+
+  toggleTheme() {
+    this.setTheme(this.state.theme === 'dark' ? 'light' : 'dark');
   }
 
   setToken(token, persist = false) {

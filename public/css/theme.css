@@ -1,68 +1,82 @@
 /* ==========================================================================
-   TomMC-SMP BOT DASHBOARD - MATURE COLOR PALETTE
-   Palette Reference: https://colorhunt.co/palette/f5f5f5dff1f1bbd5daff0000
-   #F5F5F5 (Soft Base) | #DFF1F1 (Pale Ice Mint) | #BBD5DA (Slate Seafoam) | #FF0000 (Signal Red)
+   TomMC-SMP Server Telemetry & Bot Hub - Core Design System
+   Exact 5-Color Palette:
+     Black:          #000000 (Dark elements & deep canvas)
+     Prussian Blue:  #14213D (Dark elements, surfaces & chrome)
+     Orange:         #FCA311 (Accents, highlights & active states)
+     Alabaster Grey: #E5E5E5 (Subtle backgrounds & secondary text/borders)
+     White:          #FFFFFF (Clean space, contrast & primary text)
    ========================================================================== */
 
-:root {
-  /* Surface & Canvas (Light mature system) */
-  --bg-app: #F5F5F5;
-  --bg-surface: #FFFFFF;
-  --bg-surface-elevated: #EDF5F6;
-  --bg-surface-active: #DFF1F1;
-  --bg-surface-subtle: #F3F8F9;
-  --bg-input: #FFFFFF;
+:root, [data-theme="dark"] {
+  color-scheme: dark;
 
-  /* Borders & Dividers (Derived from #BBD5DA) */
-  --border-subtle: #D6E4E7;
-  --border-default: #BBD5DA;
-  --border-strong: #9FBEC5;
-  --border-focus: #235D69;
+  /* Surfaces & Canvas */
+  --bg-app: #000000;
+  --bg-surface: #14213D;
+  --bg-surface-elevated: #000000;
+  --bg-surface-active: #14213D;
+  --bg-surface-subtle: #000000;
+  --bg-input: #000000;
 
-  /* Typography (High contrast, accessible slate charcoal) */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  /* Physical Tactile Borders */
+  --border-subtle: #14213D;
+  --border-default: #E5E5E5;
+  --border-strong: #FCA311;
+  --border-focus: #FCA311;
 
-  --text-primary: #172326;
-  --text-secondary: #3A4F54;
-  --text-muted: #5C747A;
-  --text-dim: #839A9F;
-  --text-inverse: #FFFFFF;
+  /* Typography Scales & Neutrals */
+  --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Brand & Primary (Deep Nordic Slate-Teal harmonious with #BBD5DA / #DFF1F1) */
-  --color-primary: #235D69;
-  --color-primary-hover: #1A4953;
-  --color-primary-surface: #DFF1F1;
-  --color-primary-text: #194B55;
+  --text-primary: #FFFFFF;
+  --text-secondary: #E5E5E5;
+  --text-muted: #E5E5E5;
+  --text-dim: #E5E5E5;
+  --text-inverse: #000000;
+
+  /* Brand Colors - Exact 5-Color System */
+  --color-primary: #FCA311;
+  --color-primary-hover: #FFFFFF;
+  --color-primary-surface: #14213D;
+  --color-primary-text: #FCA311;
+  --color-accent: #FCA311;
 
   /* Status Colors */
-  --color-online: #166534;
-  --color-online-bg: #DFF1F1;
-  --color-online-text: #14532D;
+  --color-online: #FCA311;
+  --color-online-bg: #14213D;
+  --color-online-text: #FCA311;
+  --color-online-border: #FCA311;
 
-  --color-offline: #5C747A;
-  --color-offline-bg: #E6EDED;
-  --color-offline-text: #3A4F54;
+  --color-offline: #E5E5E5;
+  --color-offline-bg: #000000;
+  --color-offline-text: #E5E5E5;
+  --color-offline-border: #E5E5E5;
 
-  --color-starting: #B45309;
-  --color-starting-bg: #FEF3C7;
-  --color-starting-text: #92400E;
+  --color-starting: #FCA311;
+  --color-starting-bg: #14213D;
+  --color-starting-text: #FCA311;
+  --color-starting-border: #FCA311;
 
-  /* Signal Red & Critical Alert (Derived from #FF0000) */
-  --color-danger: #DC2626;
-  --color-danger-hover: #B91C1C;
-  --color-danger-bg: #FEE2E2;
-  --color-danger-text: #991B1B;
+  --color-danger: #FFFFFF;
+  --color-danger-hover: #E5E5E5;
+  --color-danger-bg: #000000;
+  --color-danger-text: #FFFFFF;
+  --color-danger-border: #E5E5E5;
 
-  --color-info: #0284C7;
-  --color-info-bg: #E0F2FE;
-  --color-info-text: #0369A1;
+  --color-info: #FCA311;
+  --color-info-bg: #14213D;
+  --color-info-text: #FFFFFF;
+  --color-info-border: #FCA311;
 
-  --color-purple: #4F46E5;
-  --color-purple-bg: #EEF2FF;
-  --color-purple-text: #3730A3;
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.85);
+  --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.95);
 
-  /* Layout & Sizing */
+  /* Geometry */
   --max-width: 1280px;
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -70,15 +84,88 @@
   --radius-xl: 12px;
   --radius-full: 9999px;
 
-  /* Elevation Shadows (Crisp, optical light-mode depth) */
-  --shadow-sm: 0 1px 3px 0 rgba(23, 35, 38, 0.05), 0 1px 2px 0 rgba(23, 35, 38, 0.03);
-  --shadow-md: 0 4px 6px -1px rgba(23, 35, 38, 0.07), 0 2px 4px -2px rgba(23, 35, 38, 0.04);
-  --shadow-lg: 0 10px 15px -3px rgba(23, 35, 38, 0.08), 0 4px 6px -4px rgba(23, 35, 38, 0.04);
-  --shadow-modal: 0 20px 25px -5px rgba(23, 35, 38, 0.14), 0 8px 10px -6px rgba(23, 35, 38, 0.06);
+  /* Chart Specific Colors */
+  --chart-server-line: #FCA311;
+  --chart-server-fill: rgba(252, 163, 17, 0.18);
+  --chart-bot-line: #FFFFFF;
+  --chart-bot-fill: rgba(255, 255, 255, 0.12);
+  --chart-grid: #14213D;
 
   /* Transitions */
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 140ms ease;
+  --transition-normal: 200ms ease;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Surfaces & Canvas */
+  --bg-app: #E5E5E5;
+  --bg-surface: #FFFFFF;
+  --bg-surface-elevated: #E5E5E5;
+  --bg-surface-active: #E5E5E5;
+  --bg-surface-subtle: #FFFFFF;
+  --bg-input: #FFFFFF;
+
+  /* Physical Tactile Borders */
+  --border-subtle: #E5E5E5;
+  --border-default: #14213D;
+  --border-strong: #14213D;
+  --border-focus: #FCA311;
+
+  /* Typography Scales & Neutrals */
+  --text-primary: #000000;
+  --text-secondary: #14213D;
+  --text-muted: #14213D;
+  --text-dim: #14213D;
+  --text-inverse: #FFFFFF;
+
+  /* Brand Colors */
+  --color-primary: #14213D;
+  --color-primary-hover: #000000;
+  --color-primary-surface: #E5E5E5;
+  --color-primary-text: #14213D;
+  --color-accent: #FCA311;
+
+  /* Status Colors */
+  --color-online: #14213D;
+  --color-online-bg: #E5E5E5;
+  --color-online-text: #14213D;
+  --color-online-border: #FCA311;
+
+  --color-offline: #14213D;
+  --color-offline-bg: #E5E5E5;
+  --color-offline-text: #14213D;
+  --color-offline-border: #14213D;
+
+  --color-starting: #FCA311;
+  --color-starting-bg: #E5E5E5;
+  --color-starting-text: #14213D;
+  --color-starting-border: #FCA311;
+
+  --color-danger: #000000;
+  --color-danger-hover: #14213D;
+  --color-danger-bg: #E5E5E5;
+  --color-danger-text: #000000;
+  --color-danger-border: #14213D;
+
+  --color-info: #14213D;
+  --color-info-bg: #E5E5E5;
+  --color-info-text: #14213D;
+  --color-info-border: #14213D;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+  --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.25);
+
+  /* Chart Specific Colors */
+  --chart-server-line: #FCA311;
+  --chart-server-fill: rgba(252, 163, 17, 0.18);
+  --chart-bot-line: #14213D;
+  --chart-bot-fill: rgba(20, 33, 61, 0.15);
+  --chart-grid: #E5E5E5;
 }
 
 *, *::before, *::after {
@@ -89,14 +176,14 @@
 
 html {
   font-size: 16px;
-  color-scheme: light;
+  background-color: var(--bg-app);
 }
 
 body {
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   background-color: var(--bg-app);
   color: var(--text-primary);
-  line-height: 1.5;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
@@ -104,51 +191,43 @@ body {
   flex-direction: column;
 }
 
-/* Typography Base */
-h1, h2, h3, h4, h5, h6 {
+/* Typographic Hierarchy */
+h1, h2, h3, h4, h5, h6,
+.brand-title,
+.card-title,
+.stat-value,
+.heading-display {
+  font-family: var(--font-display);
+  font-weight: 700;
   color: var(--text-primary);
-  font-weight: 600;
   letter-spacing: -0.02em;
+  line-height: 1.25;
 }
 
-p {
-  color: var(--text-secondary);
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.375rem; }
+h3 { font-size: 1.125rem; }
+h4 { font-size: 1rem; }
+
+p, .body-text {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.6;
+  max-width: 72ch;
 }
 
-a {
-  color: var(--color-primary-text);
-  text-decoration: none;
-  transition: color var(--transition-fast);
-}
-
-a:hover {
-  color: #93c5fd;
-  text-decoration: underline;
-}
-
-code, pre {
+/* Code & Monospace */
+code, pre, .font-mono, .monospace, .address-text {
   font-family: var(--font-mono);
 }
 
-button {
-  font-family: inherit;
-  cursor: pointer;
-  border: none;
-  outline: none;
+/* Accessibility Focus States */
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
 }
 
-input, select, textarea {
-  font-family: inherit;
-  font-size: 0.875rem;
-  color: var(--text-primary);
-  background-color: var(--bg-input);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: 0.5rem 0.75rem;
-  outline: none;
-  transition: border-color var(--transition-fast);
-}
-
-input:focus, select:focus, textarea:focus {
-  border-color: var(--border-focus);
+/* Theme Transitions */
+body, .app-header, .nav-tabs, .card, .stat-card, .btn, .nav-tab-btn, .modal-content, .theme-toggle-btn {
+  transition: background-color var(--transition-normal), border-color var(--transition-normal), color var(--transition-normal);
 }

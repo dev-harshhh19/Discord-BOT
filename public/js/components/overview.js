@@ -255,9 +255,84 @@ export function renderOverview(container) {
         </div>
       </div>
     </div>
+
+    <!-- 24/7 Keep-Alive & Health API Strip -->
+    <div class="card" style="margin-top: 1.25rem;">
+      <div class="card-header" style="flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <div class="stat-icon-wrapper" style="width: 2.25rem; height: 2.25rem; background: var(--bg-surface-elevated); color: var(--color-online);">
+            ${getIcon('radio')}
+          </div>
+          <div>
+            <div class="card-title" style="margin-bottom: 0.15rem;">
+              <span>24/7 Keep-Alive &amp; Health Probe Engine</span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">
+              Automated in-process self-ping &amp; external webhook monitoring keeps the service awake 24/7
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <div class="status-pill online">
+            <span class="status-dot"></span>
+            <span>24/7 ACTIVE</span>
+          </div>
+          <button class="btn btn-secondary" id="overview-ka-btn" type="button" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
+            <span class="icon">${getIcon('externalLink')}</span>
+            <span>Keep-Alive Hub</span>
+          </button>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.75rem 1rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem;">
+          <span style="color: var(--text-muted);">Health Endpoint:</span>
+          <code style="font-family: var(--font-mono); color: var(--color-primary-text);">${window.location.origin}/api/health</code>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <button class="btn btn-secondary" id="overview-copy-health-btn" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
+            <span class="icon">${getIcon('copy')}</span>
+            <span>Copy</span>
+          </button>
+          <button class="btn btn-primary" id="overview-test-ping-btn" style="padding: 0.25rem 0.65rem; font-size: 0.75rem;">
+            <span class="icon">${getIcon('activity')}</span>
+            <span>Test Ping</span>
+          </button>
+        </div>
+      </div>
+    </div>
   `;
 
   // Attach Event Handlers
+  container.querySelector('#overview-ka-btn')?.addEventListener('click', () => {
+    store.setCurrentTab('keepalive');
+  });
+
+  container.querySelector('#overview-copy-health-btn')?.addEventListener('click', () => {
+    const url = `${window.location.origin}/api/health`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => showToast('Health URL copied to clipboard!', 'success'));
+    } else {
+      showToast('Health URL: ' + url, 'info');
+    }
+  });
+
+  container.querySelector('#overview-test-ping-btn')?.addEventListener('click', async () => {
+    const btn = container.querySelector('#overview-test-ping-btn');
+    if (btn) btn.disabled = true;
+    try {
+      const start = performance.now();
+      const res = await api.triggerKeepAlivePing();
+      const ms = Math.round(performance.now() - start);
+      showToast(`Keep-Alive test ping successful (${ms}ms) - Status UP!`, 'success');
+    } catch (err) {
+      showToast('Probe failed: ' + err.message, 'danger');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  });
+
   container.querySelector('#banner-unlock-btn')?.addEventListener('click', () => {
     store.setCurrentTab('login');
   });
@@ -309,12 +384,11 @@ export function renderOverview(container) {
     await handleServerAction('poll', api.pollServer);
   });
 
-  // Mount Reusable Status Card Component
+  // Mount Reusable Status Card Component (Store-driven updates with zero redundant network requests)
   const statusMount = container.querySelector('#overview-status-card-mount');
   if (statusMount) {
     renderStatusCard(statusMount, {
-      autoRefresh: true,
-      refreshInterval: 5000,
+      autoRefresh: false,
       liveTicker: true,
     });
   }

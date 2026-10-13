@@ -14,7 +14,7 @@ export function renderAccessControl(container) {
 
   container.innerHTML = `
     <!-- Rule Highlight Card -->
-    <div class="card" style="border-left: 4px solid var(--color-online);">
+    <div class="card">
       <div style="display: flex; align-items: flex-start; gap: 0.875rem;">
         <span class="icon" style="color: var(--color-online); flex-shrink: 0; margin-top: 0.15rem;">
           ${getIcon('shield')}

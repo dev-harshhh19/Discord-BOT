@@ -20,11 +20,14 @@ export async function onReady(
     try {
       const guild = await client.guilds.fetch(config.discord.guildId);
       if (guild) {
-        await guild.members.fetch();
+        await guild.members.fetch().catch((e: unknown) => {
+          logger.warn(`Could not prefetch guild members: ${String(e)}`);
+          return null;
+        });
         logger.info(`Prefetched ${guild.memberCount} members for guild "${guild.name}".`);
       }
     } catch (err) {
-      logger.warn(`Could not prefetch guild members: ${String(err)}`);
+      logger.warn(`Could not fetch guild: ${String(err)}`);
     }
   }
 

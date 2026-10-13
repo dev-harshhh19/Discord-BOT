@@ -8,16 +8,22 @@ import { logger } from '../../infrastructure/logger/WinstonLogger';
  */
 
 /** Constant-time string comparison preventing timing attack leaks. */
-export function timingSafeMatch(provided: string, expected: string): boolean {
+export function timingSafeMatch(provided: unknown, expected: unknown): boolean {
+  if (typeof provided !== 'string' || typeof expected !== 'string') return false;
   if (!provided || !expected) return false;
-  const a = Buffer.from(provided, 'utf8');
-  const b = Buffer.from(expected, 'utf8');
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+  try {
+    const a = Buffer.from(provided, 'utf8');
+    const b = Buffer.from(expected, 'utf8');
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
 }
 
 /** Extracts authentication token from Bearer header or X-Auth-Token header. */
 export function extractToken(req: Request): string | null {
+  if (!req || typeof req.get !== 'function') return null;
   const authorization = req.get('authorization');
   if (authorization) {
     const match = /^Bearer\s+(.+)$/i.exec(authorization.trim());
@@ -35,9 +41,13 @@ export function isAuthConfigured(): boolean {
   return Boolean(config.web.adminPassword && config.web.adminPassword.trim() !== '');
 }
 
-/** Validates whether a given token matches the configured admin password. */
-export function verifyAdminToken(token: string | null | undefined): boolean {
-  if (!isAuthConfigured() || !token) return false;
+/** Validates whether a given token (or request) matches the configured admin password. */
+export function verifyAdminToken(tokenOrReq: string | Request | null | undefined): boolean {
+  if (!isAuthConfigured() || !tokenOrReq) return false;
+  const token = typeof tokenOrReq === 'object' && 'headers' in tokenOrReq
+    ? extractToken(tokenOrReq)
+    : (typeof tokenOrReq === 'string' ? tokenOrReq : null);
+  if (!token) return false;
   return timingSafeMatch(token, config.web.adminPassword);
 }
 
@@ -101,11 +111,29 @@ export function createRateLimiter(options: RateLimitOptions | number, windowMs?:
   const hits = new Map<string, number[]>();
 
   return function rateLimit(req: Request, res: Response, next: NextFunction): void {
-    const key = req.ip || req.socket.remoteAddress || 'unknown';
+    // Accurately resolve real client IP across reverse proxies & Cloud Run
+    const forwarded = req.headers['x-forwarded-for'];
+    const forwardedIp = typeof forwarded === 'string'
+      ? forwarded.split(',')[0].trim()
+      : Array.isArray(forwarded) && forwarded[0]
+        ? forwarded[0].split(',')[0].trim()
+        : null;
+    const key = forwardedIp || req.ip || req.socket.remoteAddress || 'unknown';
+
+    // Never throttle local loopback probes or health tasks
+    if (key === '127.0.0.1' || key === '::1' || key === '::ffff:127.0.0.1') {
+      next();
+      return;
+    }
+
     const now = Date.now();
     const recent = (hits.get(key) ?? []).filter((t) => now - t < window);
 
-    if (recent.length >= maxRequests) {
+    // Give authenticated admins additional headroom
+    const token = extractToken(req);
+    const effectiveMax = verifyAdminToken(token) ? maxRequests * 2 : maxRequests;
+
+    if (recent.length >= effectiveMax) {
       const oldest = recent[0] ?? now;
       const retryAfter = Math.max(1, Math.ceil((window - (now - oldest)) / 1000));
       res.setHeader('Retry-After', retryAfter.toString());
@@ -133,20 +161,21 @@ export function createRateLimiter(options: RateLimitOptions | number, windowMs?:
 }
 
 // Pre-configured rate limiters
+// Generous 600 req/min (10 req/s) for telemetry, status polling, and multi-tab dashboard use
 export const ddosApiRateLimiter = createRateLimiter({
-  maxRequests: 120,
+  maxRequests: 600,
   windowMs: 60_000,
   message: 'API request rate limit exceeded.',
 });
 
 export const authLoginRateLimiter = createRateLimiter({
-  maxRequests: 5,
+  maxRequests: 10,
   windowMs: 60_000,
   message: 'Too many login attempts. Blocked for 60 seconds to protect against brute force.',
 });
 
 export const serverActionRateLimiter = createRateLimiter({
-  maxRequests: 6,
+  maxRequests: 20,
   windowMs: 60_000,
   message: 'Server control rate limit reached. Please wait before issuing more server actions.',
 });

@@ -18,8 +18,8 @@ export class StatusCard {
   constructor(container, options = {}) {
     this.container = container;
     this.options = {
-      autoRefresh: options.autoRefresh ?? true,
-      refreshInterval: options.refreshInterval ?? 5000,
+      autoRefresh: options.autoRefresh ?? false,
+      refreshInterval: options.refreshInterval ?? 30000,
       liveTicker: options.liveTicker ?? true,
       ...options,
     };
@@ -30,20 +30,58 @@ export class StatusCard {
     this.lastFetchedTime = null;
     this.pollTimer = null;
     this.tickerTimer = null;
+    this.unsubscribeStore = null;
     this.id = 'status-card-' + Math.random().toString(36).slice(2, 9);
   }
 
   async init() {
     this.renderInitialSkeleton();
-    await this.fetchHealth();
+
+    // Sync immediately from store if status is available
+    const currentStatus = store.getState().status;
+    if (currentStatus) {
+      this.syncFromStatus(currentStatus);
+    } else {
+      void this.fetchHealth();
+    }
+
+    // Subscribe to store updates for real-time reactivity without duplicate network requests
+    this.unsubscribeStore = store.subscribe((state) => {
+      if (document.body.contains(this.container)) {
+        if (state.status) {
+          this.syncFromStatus(state.status);
+        }
+      } else {
+        this.destroy();
+      }
+    });
 
     if (this.options.liveTicker) {
       this.startTicker();
     }
 
+    // Only start background polling if explicitly requested (calm 30s interval)
     if (this.options.autoRefresh) {
       this.startPolling();
     }
+  }
+
+  syncFromStatus(statusRes) {
+    if (!statusRes) return;
+    const server = statusRes.server || {};
+    const bot = statusRes.bot || {};
+    this.healthData = {
+      status: bot.ready ? 'UP' : 'STANDBY',
+      state: server.state || 'UNKNOWN',
+      bot_ready: Boolean(bot.ready),
+      discord_latency_ms: bot.ping ?? null,
+      memory_mb: bot.memory?.rssMB ?? null,
+      uptime_seconds: bot.uptimeSeconds ?? this.uptimeSeconds,
+    };
+    if (bot.uptimeSeconds) {
+      this.uptimeSeconds = Number(bot.uptimeSeconds);
+    }
+    this.updateDOM();
   }
 
   async fetchHealth() {
@@ -89,9 +127,11 @@ export class StatusCard {
   startPolling() {
     this.stopPolling();
     this.pollTimer = setInterval(() => {
-      // Only fetch if container is still connected in DOM
+      // Only fetch if container is still connected and tab is visible
       if (document.body.contains(this.container)) {
-        void this.fetchHealth();
+        if (!document.hidden) {
+          void this.fetchHealth();
+        }
       } else {
         this.destroy();
       }
@@ -108,6 +148,10 @@ export class StatusCard {
   destroy() {
     this.stopPolling();
     this.stopTicker();
+    if (this.unsubscribeStore) {
+      this.unsubscribeStore();
+      this.unsubscribeStore = null;
+    }
     if (this.container && this.container._statusCardInstance === this) {
       delete this.container._statusCardInstance;
     }
@@ -238,30 +282,30 @@ export class StatusCard {
           
           <div class="health-metric-tile" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.85rem;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-              <span style="font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600;">Process Uptime</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">Process Uptime</span>
               <span class="icon" style="color: var(--color-online);">${getIcon('clock')}</span>
             </div>
             <div id="${this.id}-uptime" style="font-family: var(--font-mono); font-size: 1.125rem; font-weight: 700; color: var(--text-primary);">
               ${this.formatUptime(this.uptimeSeconds)}
             </div>
-            <div style="font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.25rem;">Live ticking continuous counter</div>
+            <div style="font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.25rem;">Continuous runtime counter</div>
           </div>
 
           <div class="health-metric-tile" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.85rem;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-              <span style="font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600;">Server Lifecycle</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">Server Lifecycle</span>
               <span class="icon" style="color: var(--color-primary);">${getIcon('server')}</span>
             </div>
             <div id="${this.id}-state" style="font-size: 1.125rem; font-weight: 700; color: ${isOnline ? 'var(--color-online-text)' : 'var(--text-secondary)'};">
               ${escapeHtml(state)}
             </div>
-            <div style="font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.25rem;">Aternos monitored state</div>
+            <div style="font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.25rem;">Monitored server state</div>
           </div>
 
           <div class="health-metric-tile" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.85rem;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-              <span style="font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600;">Discord Gateway</span>
-              <span class="icon" style="color: var(--color-purple);">${getIcon('zap')}</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">Discord Gateway</span>
+              <span class="icon" style="color: var(--color-primary);">${getIcon('zap')}</span>
             </div>
             <div id="${this.id}-ready" style="font-size: 1rem; font-weight: 700; color: ${data.bot_ready ? 'var(--color-online-text)' : 'var(--color-danger-text)'};">
               ${data.bot_ready ? 'Ready & Connected' : 'Offline'}
@@ -273,7 +317,7 @@ export class StatusCard {
 
           <div class="health-metric-tile" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.85rem;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-              <span style="font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600;">Memory Footprint</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">Memory Footprint</span>
               <span class="icon" style="color: var(--color-info);">${getIcon('cpu')}</span>
             </div>
             <div id="${this.id}-memory" style="font-family: var(--font-mono); font-size: 1.125rem; font-weight: 700; color: var(--text-primary);">
@@ -290,14 +334,26 @@ export class StatusCard {
             <span style="display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--color-online);"></span>
             <span>Uptime Monitor API: <code style="font-family: var(--font-mono); color: var(--color-primary-text);">/api/health</code> (HTTP 200 OK)</span>
           </div>
-          <div>
-            Last probe: <span id="${this.id}-probe-time" style="color: var(--text-secondary); font-weight: 500;">Just now</span>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <a href="#" id="${this.id}-ka-link" style="color: var(--color-primary-text); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;">
+              <span>24/7 Keep-Alive Hub</span>
+              <span class="icon">${getIcon('externalLink')}</span>
+            </a>
+            <span>•</span>
+            <div>
+              Last probe: <span id="${this.id}-probe-time" style="color: var(--text-secondary); font-weight: 500;">Just now</span>
+            </div>
           </div>
         </div>
       </div>
     `;
 
-    // Attach refresh handler
+    // Attach handlers
+    this.container.querySelector(`#${this.id}-ka-link`)?.addEventListener('click', (e) => {
+      e.preventDefault();
+      store.setCurrentTab('keepalive');
+    });
+
     this.container.querySelector(`#${this.id}-refresh-btn`)?.addEventListener('click', () => {
       void this.fetchHealth();
     });

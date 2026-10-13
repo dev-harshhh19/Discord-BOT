@@ -26,6 +26,11 @@ export function renderNavbar(container) {
       </div>
 
       <div class="header-meta">
+        <button class="theme-toggle-btn" id="theme-toggle-btn" type="button" aria-label="Toggle visual theme" title="Switch to ${state.theme === 'dark' ? 'Light' : 'Dark'} mode">
+          <span class="icon">${state.theme === 'dark' ? getIcon('sun') : getIcon('moon')}</span>
+          <span class="theme-btn-label">${state.theme === 'dark' ? 'Light' : 'Dark'}</span>
+        </button>
+
         <div class="status-pill ${stateClass}" id="header-status-pill">
           <span class="status-dot"></span>
           <span class="status-text">${escapeHtml(serverState)}</span>
@@ -34,14 +39,14 @@ export function renderNavbar(container) {
     </header>
 
     <nav class="nav-tabs">
-      <button class="nav-tab-btn ${state.currentTab === 'landing' ? 'active' : ''}" data-tab="landing">
-        <span class="icon">${getIcon('home')}</span>
-        <span>Home</span>
-      </button>
-
       <button class="nav-tab-btn ${state.currentTab === 'overview' ? 'active' : ''}" data-tab="overview">
         <span class="icon">${getIcon('server')}</span>
         <span>Dashboard</span>
+      </button>
+
+      <button class="nav-tab-btn ${state.currentTab === 'keepalive' ? 'active' : ''}" data-tab="keepalive" title="24/7 Keep-Alive & Health API">
+        <span class="icon" style="color: var(--color-online);">${getIcon('radio')}</span>
+        <span>24/7 Keep-Alive</span>
       </button>
 
       <button class="nav-tab-btn ${state.currentTab === 'members' ? 'active' : ''}" data-tab="members">
@@ -60,6 +65,11 @@ export function renderNavbar(container) {
         <span class="icon">${getIcon('terminal')}</span>
         <span>Logs</span>
         ${!isAdmin ? `<span class="icon" style="color: var(--text-dim);">${getIcon('lock')}</span>` : ''}
+      </button>
+
+      <button class="nav-tab-btn ${state.currentTab === 'landing' ? 'active' : ''}" data-tab="landing">
+        <span class="icon">${getIcon('home')}</span>
+        <span>Home</span>
       </button>
 
       <div style="flex-grow: 1;"></div>
@@ -83,13 +93,17 @@ export function renderNavbar(container) {
   `;
 
   // Attach event handlers
+  container.querySelector('#theme-toggle-btn')?.addEventListener('click', () => {
+    store.toggleTheme();
+  });
+
   container.querySelector('#brand-title-link')?.addEventListener('click', () => {
-    store.setCurrentTab('landing');
+    store.setCurrentTab('overview');
   });
 
   container.querySelector('#auth-lock-btn')?.addEventListener('click', () => {
     store.clearToken();
-    store.setCurrentTab('landing');
+    store.setCurrentTab('overview');
     showToast('Admin session locked.', 'info');
   });
 

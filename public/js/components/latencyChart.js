@@ -268,7 +268,13 @@ export class LatencyChart {
     // Gradients Definition
     const defs = svg.append('defs');
 
-    // Soft Gradient for Server (Forest Slate)
+    // Extract theme-aware chart colors dynamically
+    const computedStyles = getComputedStyle(document.documentElement);
+    const serverColor = computedStyles.getPropertyValue('--chart-server-line').trim() || '#FCA311';
+    const botColor = computedStyles.getPropertyValue('--chart-bot-line').trim() || '#FFFFFF';
+    const gridColor = computedStyles.getPropertyValue('--border-subtle').trim() || '#14213D';
+
+    // Soft Gradient for Server (Theme aware)
     const serverGrad = defs
       .append('linearGradient')
       .attr('id', `${this.id}-server-grad`)
@@ -276,10 +282,10 @@ export class LatencyChart {
       .attr('y1', '0%')
       .attr('x2', '0%')
       .attr('y2', '100%');
-    serverGrad.append('stop').attr('offset', '0%').attr('stop-color', '#166534').attr('stop-opacity', 0.18);
-    serverGrad.append('stop').attr('offset', '100%').attr('stop-color', '#166534').attr('stop-opacity', 0.0);
+    serverGrad.append('stop').attr('offset', '0%').attr('stop-color', serverColor).attr('stop-opacity', 0.16);
+    serverGrad.append('stop').attr('offset', '100%').attr('stop-color', serverColor).attr('stop-opacity', 0.0);
 
-    // Soft Gradient for Bot Gateway (Deep Slate Teal)
+    // Soft Gradient for Bot Gateway (Theme aware)
     const botGrad = defs
       .append('linearGradient')
       .attr('id', `${this.id}-bot-grad`)
@@ -287,8 +293,8 @@ export class LatencyChart {
       .attr('y1', '0%')
       .attr('x2', '0%')
       .attr('y2', '100%');
-    botGrad.append('stop').attr('offset', '0%').attr('stop-color', '#235D69').attr('stop-opacity', 0.18);
-    botGrad.append('stop').attr('offset', '100%').attr('stop-color', '#235D69').attr('stop-opacity', 0.0);
+    botGrad.append('stop').attr('offset', '0%').attr('stop-color', botColor).attr('stop-opacity', 0.16);
+    botGrad.append('stop').attr('offset', '100%').attr('stop-color', botColor).attr('stop-opacity', 0.0);
 
     // Main Group
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
@@ -318,7 +324,7 @@ export class LatencyChart {
       .attr('class', 'grid y-grid')
       .call(yGrid)
       .selectAll('line')
-      .attr('stroke', 'var(--border-subtle)')
+      .attr('stroke', gridColor)
       .attr('stroke-opacity', 0.6)
       .attr('stroke-dasharray', '2,2');
     g.selectAll('.y-grid .domain').remove();
@@ -340,8 +346,8 @@ export class LatencyChart {
       .attr('font-family', 'var(--font-mono)')
       .attr('dy', '1em');
 
-    xAxisG.select('.domain').attr('stroke', 'var(--border-subtle)');
-    xAxisG.selectAll('line').attr('stroke', 'var(--border-subtle)');
+    xAxisG.select('.domain').attr('stroke', gridColor);
+    xAxisG.selectAll('line').attr('stroke', gridColor);
 
     // Y Axis
     const yAxis = d3
@@ -356,8 +362,8 @@ export class LatencyChart {
       .attr('font-size', '10px')
       .attr('font-family', 'var(--font-mono)');
 
-    yAxisG.select('.domain').attr('stroke', 'var(--border-subtle)');
-    yAxisG.selectAll('line').attr('stroke', 'var(--border-subtle)');
+    yAxisG.select('.domain').attr('stroke', gridColor);
+    yAxisG.selectAll('line').attr('stroke', gridColor);
 
     // Generators
     const botLine = d3
@@ -403,7 +409,7 @@ export class LatencyChart {
         .attr('class', 'line bot-line')
         .attr('d', botLine)
         .attr('fill', 'none')
-        .attr('stroke', '#235D69')
+        .attr('stroke', botColor)
         .attr('stroke-width', 2);
 
       // Latest Point Pulse
@@ -413,7 +419,7 @@ export class LatencyChart {
           .attr('cx', xScale(new Date(lastBotPoint.timestamp)))
           .attr('cy', yScale(lastBotPoint.botPing))
           .attr('r', 4)
-          .attr('fill', '#235D69')
+          .attr('fill', botColor)
           .attr('stroke', 'var(--bg-surface)')
           .attr('stroke-width', 2);
       }
@@ -434,7 +440,7 @@ export class LatencyChart {
           .attr('class', 'line server-line')
           .attr('d', serverLine)
           .attr('fill', 'none')
-          .attr('stroke', '#166534')
+          .attr('stroke', serverColor)
           .attr('stroke-width', 2.2);
 
         const lastServerPoint = history.slice().reverse().find((d) => d.serverLatency !== null);
@@ -443,7 +449,7 @@ export class LatencyChart {
             .attr('cx', xScale(new Date(lastServerPoint.timestamp)))
             .attr('cy', yScale(lastServerPoint.serverLatency))
             .attr('r', 4)
-            .attr('fill', '#166534')
+            .attr('fill', serverColor)
             .attr('stroke', 'var(--bg-surface)')
             .attr('stroke-width', 2);
         }

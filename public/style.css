@@ -7,37 +7,37 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
-  /* Color Palette */
-  --bg-dark: #070a12;
-  --bg-surface: #0e1424;
-  --bg-card: rgba(15, 23, 42, 0.75);
-  --bg-card-hover: rgba(22, 33, 62, 0.85);
-  --bg-card-inner: rgba(10, 16, 30, 0.6);
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-focus: rgba(88, 101, 242, 0.5);
+  /* Color Palette (Color Hunt: #F5F5F5 / #DFF1F1 / #BBD5DA / #FF0000) */
+  --bg-dark: #F5F5F5;
+  --bg-surface: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #EDF5F6;
+  --bg-card-inner: #DFF1F1;
+  --border-color: #BBD5DA;
+  --border-focus: #235D69;
 
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #172326;
+  --text-secondary: #3A4F54;
+  --text-muted: #5C747A;
 
   /* Status Colors */
-  --color-online: #10b981;
-  --color-online-glow: rgba(16, 185, 129, 0.35);
-  --color-starting: #f59e0b;
-  --color-starting-glow: rgba(245, 158, 11, 0.35);
-  --color-offline: #ef4444;
-  --color-offline-glow: rgba(239, 68, 68, 0.35);
-  --color-blurple: #5865f2;
-  --color-blurple-hover: #4752c4;
-  --color-blurple-glow: rgba(88, 101, 242, 0.35);
-  --color-indigo: #6366f1;
+  --color-online: #166534;
+  --color-online-glow: rgba(22, 101, 52, 0.2);
+  --color-starting: #B45309;
+  --color-starting-glow: rgba(180, 83, 9, 0.2);
+  --color-offline: #5C747A;
+  --color-offline-glow: rgba(92, 116, 122, 0.2);
+  --color-blurple: #235D69;
+  --color-blurple-hover: #1A4953;
+  --color-blurple-glow: rgba(35, 93, 105, 0.2);
+  --color-indigo: #235D69;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
   --radius-full: 9999px;
 
-  --shadow-card: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --shadow-card: 0 4px 6px -1px rgba(23, 35, 38, 0.07);
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 

@@ -10,6 +10,7 @@ import { renderLanding } from './components/landing.js';
 import { renderLogin } from './components/login.js';
 import { renderTerms } from './components/terms.js';
 import { renderPrivacy } from './components/privacy.js';
+import { renderKeepAlive } from './components/keepalive.js';
 
 /**
  * Main Application Orchestrator
@@ -20,6 +21,7 @@ class App {
     this.navContainer = document.getElementById('navbar-container');
     this.tabContainers = {
       overview: document.getElementById('tab-overview'),
+      keepalive: document.getElementById('tab-keepalive'),
       members: document.getElementById('tab-members'),
       access: document.getElementById('tab-access'),
       logs: document.getElementById('tab-logs'),
@@ -30,7 +32,7 @@ class App {
       privacy: document.getElementById('tab-privacy'),
     };
     this.pollingInterval = null;
-    this.activeTab = 'landing';
+    this.activeTab = 'overview';
     this.lastAdminState = false;
   }
 
@@ -80,8 +82,13 @@ class App {
       this.fetchTabContent('access', false),
     ]);
 
-    // 4. Start background polling (5 seconds)
+    // 4. Start calm background polling (8 seconds, paused when tab is inactive)
     this.startPolling();
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        void this.fetchStatus();
+      }
+    });
 
     // 5. Attach footer link handlers
     document.getElementById('footer-link-terms')?.addEventListener('click', (e) => {
@@ -104,6 +111,8 @@ class App {
       store.setCurrentTab('privacy');
     } else if (path === '/overview' || path === '/dashboard') {
       store.setCurrentTab('overview');
+    } else if (path === '/keepalive' || path === '/health-check' || path === '/ping-status') {
+      store.setCurrentTab('keepalive');
     } else if (path === '/login') {
       store.setCurrentTab('login');
     } else if (path === '/members') {
@@ -115,35 +124,34 @@ class App {
     } else if (path === '/dev') {
       store.setCurrentTab('dev');
     } else {
-      store.setCurrentTab('landing'); // default
+      store.setCurrentTab('overview'); // default
     }
   }
 
   startPolling() {
     if (this.pollingInterval) clearInterval(this.pollingInterval);
     this.pollingInterval = setInterval(async () => {
-      await this.fetchStatus();
+      // Pause polling if document is hidden to conserve server requests and prevent rate limits
+      if (document.hidden) return;
+
+      await this.fetchStatus(true);
       const state = store.getState();
       if (state.currentTab === 'logs' && state.isAdmin) {
-        const logsRes = await api.getLogs(150);
+        const logsRes = await api.getLogs(150, true);
         if (logsRes.success && logsRes.logs) {
           store.update({ logs: logsRes.logs });
         }
       }
-    }, 5000);
+    }, 8000);
   }
 
-  async fetchStatus() {
-    const [res, healthRes] = await Promise.all([
-      api.getStatus(),
-      api.getHealth().catch(() => null),
-    ]);
+  async fetchStatus(isBackground = false) {
+    const res = await api.getStatus(isBackground);
 
-    if (res.success) {
+    if (res && res.success) {
       store.update({
         status: res,
         isAdmin: res.role === 'admin' || store.getState().isAdmin,
-        ...(healthRes && healthRes.status ? { health: healthRes } : {}),
       });
 
       // Record telemetry data point for real-time D3 visualization
@@ -152,14 +160,14 @@ class App {
         : null;
       const botPing = res.bot?.ping !== null && res.bot?.ping !== undefined && res.bot.ping >= 0
         ? Number(res.bot.ping)
-        : (healthRes?.discord_latency_ms ?? null);
+        : null;
 
       store.recordTelemetry({
         timestamp: Date.now(),
         serverLatency,
         botPing,
         state: res.server?.state || 'UNKNOWN',
-        memoryMb: res.bot?.memory?.rssMB || healthRes?.memory_mb,
+        memoryMb: res.bot?.memory?.rssMB || null,
       });
     }
   }
@@ -196,6 +204,11 @@ class App {
         }
       } else if (tab === 'overview' && force) {
         await this.fetchStatus();
+      } else if (tab === 'keepalive') {
+        const kaRes = await api.getKeepAlive();
+        if (kaRes && kaRes.success) {
+          store.update({ keepalive: kaRes });
+        }
       }
     } catch (err) {
       console.error(`Error fetching tab content for ${tab}:`, err);
@@ -216,6 +229,7 @@ class App {
         container.classList.add('active');
         // Render content for this tab
         if (tabKey === 'overview') renderOverview(container);
+        else if (tabKey === 'keepalive') renderKeepAlive(container);
         else if (tabKey === 'members') renderMembers(container);
         else if (tabKey === 'access') renderAccessControl(container);
         else if (tabKey === 'logs') renderLogs(container);

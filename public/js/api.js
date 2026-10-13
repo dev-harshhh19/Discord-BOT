@@ -5,7 +5,24 @@ import { showToast } from './components/toast.js';
  * Robust API Client with DDoS Rate Limit Interceptor and Token Injection
  */
 
+let lastRateLimitToastTime = 0;
+let rateLimitBackoffUntil = 0;
+
+export function isRateLimited() {
+  return Date.now() < rateLimitBackoffUntil;
+}
+
+export function getRateLimitRemainingSeconds() {
+  return Math.max(0, Math.ceil((rateLimitBackoffUntil - Date.now()) / 1000));
+}
+
 export async function apiRequest(endpoint, options = {}) {
+  // If we are in a rate limit backoff window and this is background polling, skip request
+  if (options.isBackground && isRateLimited()) {
+    const remaining = getRateLimitRemainingSeconds();
+    return { success: false, rateLimited: true, error: `Backing off (${remaining}s remaining)`, retryAfter: remaining };
+  }
+
   const { token } = store.getState();
   const headers = {
     'Accept': 'application/json',
@@ -31,10 +48,18 @@ export async function apiRequest(endpoint, options = {}) {
     // Handle 429 Too Many Requests (DDoS & Rate Limit protection)
     if (res.status === 429) {
       const data = await res.json().catch(() => ({}));
-      const retryAfter = res.headers.get('Retry-After') || '60';
+      const retryAfter = Number(res.headers.get('Retry-After') || 60);
+      rateLimitBackoffUntil = Date.now() + retryAfter * 1000;
       const msg = data.error || `Rate limit reached. Please wait ${retryAfter}s.`;
-      showToast(msg, 'warning', 6000);
-      return { success: false, rateLimited: true, error: msg, retryAfter: Number(retryAfter) };
+
+      // Throttle toasts so rapid polls don't spam alerts (at most one toast per 15s)
+      const now = Date.now();
+      if (!options.isBackground || now - lastRateLimitToastTime > 15000) {
+        lastRateLimitToastTime = now;
+        showToast(msg, 'warning', 5000);
+      }
+
+      return { success: false, rateLimited: true, error: msg, retryAfter };
     }
 
     // Handle 401 Unauthorized / 403 Forbidden
@@ -66,12 +91,17 @@ export const api = {
   checkAuth: () => apiRequest('/api/auth/check'),
 
   // Status & Telemetry
-  getStatus: () => apiRequest('/api/status'),
-  getHealth: () => apiRequest('/api/health'),
+  getStatus: (isBackground = false) => apiRequest('/api/status', { isBackground }),
+  getHealth: (isBackground = false) => apiRequest('/api/health', { isBackground }),
   getMembers: () => apiRequest('/api/members'),
   getAccessControl: () => apiRequest('/api/access-control'),
-  getLogs: (limit = 100) => apiRequest(`/api/logs?limit=${limit}`),
+  getLogs: (limit = 100, isBackground = false) => apiRequest(`/api/logs?limit=${limit}`, { isBackground }),
   getDevInfo: () => apiRequest('/api/dev'),
+
+  // 24/7 Keep-Alive & Health API
+  getKeepAlive: (isBackground = false) => apiRequest('/api/keepalive', { isBackground }),
+  triggerKeepAlivePing: () => apiRequest('/api/keepalive/ping', { method: 'POST' }),
+  configureKeepAlive: (cfg) => apiRequest('/api/keepalive/config', { method: 'POST', body: cfg }),
 
   // Server Control Actions (Admin Gated)
   startServer: () => apiRequest('/api/action/start', { method: 'POST' }),

@@ -8,6 +8,8 @@ import { config } from '../../config/env';
 import { logger } from '../../infrastructure/logger/WinstonLogger';
 import { createApiRouter } from './routes';
 import { isAuthConfigured } from './auth';
+import { keepAliveTracker } from '../../infrastructure/keepalive/KeepAliveTracker';
+import { formatUptime } from '../../utils/time';
 
 /**
  * HTTP server hosting the health endpoint and the dashboard UI.
@@ -30,6 +32,9 @@ export function startWebServer(
 
   const app = express();
 
+  // Trust proxy headers (Cloud Run, reverse proxies, dev servers)
+  app.set('trust proxy', true);
+
   app.disable('x-powered-by');
   app.use(express.json({ limit: '64kb' }));
 
@@ -41,17 +46,46 @@ export function startWebServer(
   });
 
   // Open, because container and PaaS health probes cannot supply a token. It
-  // deliberately exposes nothing beyond liveness and basic telemetry for trackers like Uptime Kuma.
-  app.get(['/health', '/api/health'], (_req: Request, res: Response) => {
+  // deliberately exposes nothing beyond liveness and basic telemetry for trackers like Uptime Kuma, UptimeRobot, and cron jobs.
+  const probePaths = ['/health', '/api/health', '/healthz', '/livez', '/ping', '/api/ping'];
+  app.all(probePaths, (req: Request, res: Response) => {
+    const startTime = Date.now();
     const ready = client.isReady();
+    const memoryUsage = process.memoryUsage();
+    const uptimeSec = Math.floor(process.uptime());
+    const stats = keepAliveTracker.getStats();
+
+    // Record this probe for the keep-alive audit stream
+    const latencyMs = Math.max(1, Date.now() - startTime);
+    keepAliveTracker.recordPing(req, latencyMs, 200);
+
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     res.status(200).json({
       status: ready ? 'UP' : 'STANDBY',
+      operational: true,
+      service: config.branding.serverName,
+      message: 'App is alive and operational 24/7',
       bot_ready: ready,
       state: services.currentState,
       discord_latency_ms: client.ws.ping >= 0 ? client.ws.ping : null,
-      uptime_seconds: Math.floor(process.uptime()),
-      memory_mb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      uptime_seconds: uptimeSec,
+      uptime_formatted: formatUptime(new Date(Date.now() - uptimeSec * 1000)),
+      memory_mb: Math.round(memoryUsage.rss / 1024 / 1024),
+      memory: {
+        rss_mb: Math.round(memoryUsage.rss / 1024 / 1024),
+        heap_used_mb: Math.round((memoryUsage.heapUsed / 1024 / 1024) * 10) / 10,
+        heap_total_mb: Math.round((memoryUsage.heapTotal / 1024 / 1024) * 10) / 10,
+      },
       timestamp: new Date().toISOString(),
+      keepalive: {
+        total_pings: stats.totalPings,
+        last_ping_at: stats.lastPingAt,
+        self_pinger_enabled: stats.selfPinger.enabled,
+        self_pinger_interval_minutes: stats.selfPinger.intervalMinutes,
+      },
     });
   });
 
@@ -62,7 +96,19 @@ export function startWebServer(
   const hasUi = fs.existsSync(indexFile);
 
   if (hasUi) {
-    app.use(express.static(staticDir, { index: false, maxAge: '1h' }));
+    app.use(
+      express.static(staticDir, {
+        index: false,
+        maxAge: 0,
+        etag: false,
+        lastModified: false,
+        setHeaders: (res: Response) => {
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+        },
+      }),
+    );
 
     // Explicit routes for Discord Bot Verification (No JS required)
     const renderLegalPage = (title: string, content: string): string => `
@@ -110,15 +156,18 @@ export function startWebServer(
     });
 
     // Single-page fallback for any non-API path.
-    app.get(/^\/(?!api\/|health$).*/, (_req: Request, res: Response) => {
+    app.get(/^\/(?!api\/|health|healthz|livez|ping).*/, (_req: Request, res: Response) => {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(indexFile);
     });
   } else {
     logger.debug(`No dashboard UI found at ${staticDir}; serving the API only.`);
   }
 
-  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    logger.error(`Unhandled web error: ${err.message}`);
+  app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
+    logger.error(`Unhandled web error on ${req.method} ${req.originalUrl || req.url}: ${err.message}${err.stack ? `\n${err.stack}` : ''}`);
     if (!res.headersSent) res.status(500).json({ success: false, error: 'Internal server error.' });
   });
 

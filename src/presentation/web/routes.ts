@@ -19,6 +19,7 @@ import {
   timingSafeMatch,
 } from './auth';
 import { describePlatform } from '../../config/platform';
+import { keepAliveTracker } from '../../infrastructure/keepalive/KeepAliveTracker';
 
 /**
  * Dashboard REST API Router with Layered Rate Limiting and Role-Based Access Control.
@@ -173,6 +174,129 @@ export function createApiRouter(
         },
       },
     });
+  });
+
+  // ─── GET /api/keepalive (24/7 Keep-Alive & Health Engine Status) ────────────
+  router.get('/keepalive', (_req: Request, res: Response) => {
+    try {
+      const ready = client.isReady();
+      const uptimeSec = Math.floor(process.uptime());
+      const stats = keepAliveTracker.getStats();
+      const memoryUsage = process.memoryUsage();
+
+      res.status(200).json({
+        success: true,
+        status: ready ? 'UP' : 'STANDBY',
+        operational: true,
+        message: 'TomMC-SMP Keep-Alive engine active 24/7',
+        service: config.branding.serverName,
+        serverState: services.currentState,
+        botReady: ready,
+        botPing: client.ws.ping >= 0 ? client.ws.ping : null,
+        uptimeSeconds: uptimeSec,
+        uptimeFormatted: formatUptime(new Date(Date.now() - uptimeSec * 1000)),
+        memory: {
+          rssMB: round1(memoryUsage.rss),
+          heapUsedMB: round1(memoryUsage.heapUsed),
+          heapTotalMB: round1(memoryUsage.heapTotal),
+        },
+        endpoints: [
+          { path: '/api/health', method: 'GET / HEAD', type: 'Primary Health & Telemetry Probe' },
+          { path: '/health', method: 'GET / HEAD', type: 'Container / PaaS Default Probe' },
+          { path: '/healthz', method: 'GET / HEAD', type: 'Kubernetes / Cloud Standard Probe' },
+          { path: '/ping', method: 'GET / HEAD', type: 'Lightweight Ping Endpoint' },
+          { path: '/api/ping', method: 'GET / HEAD', type: 'API Ping Endpoint' },
+          { path: '/livez', method: 'GET / HEAD', type: 'Liveness Check Endpoint' },
+        ],
+        stats: {
+          totalPings: stats.totalPings,
+          lastPingAt: stats.lastPingAt,
+          lastPingSource: stats.lastPingSource,
+        },
+        selfPinger: stats.selfPinger,
+        recentPings: stats.recentPings,
+        guides: [
+          {
+            name: 'UptimeRobot',
+            url: 'https://uptimerobot.com',
+            monitorType: 'HTTP(s)',
+            recommendedInterval: '5 minutes',
+            tip: 'Select HTTP(s) monitor type, paste your /api/health URL, and set interval to 5 minutes to keep the host alive 24/7.',
+          },
+          {
+            name: 'Cron-job.org',
+            url: 'https://cron-job.org',
+            monitorType: 'Webcron / URL Request',
+            recommendedInterval: '5 or 10 minutes',
+            tip: 'Free scheduled web cron that executes a GET request against your /api/health URL 24 hours a day.',
+          },
+          {
+            name: 'BetterStack (Better Uptime)',
+            url: 'https://betterstack.com',
+            monitorType: 'Uptime Probe',
+            recommendedInterval: '3 minutes',
+            tip: 'Modern uptime tracking with push incident alerts and latency analytics.',
+          },
+        ],
+      });
+    } catch (err) {
+      fail(res, '/keepalive', err);
+    }
+  });
+
+  // ─── POST /api/keepalive/ping (Trigger an on-demand test ping) ───────────────
+  router.post('/keepalive/ping', (_req: Request, res: Response) => {
+    void (async (): Promise<void> => {
+      try {
+        const start = Date.now();
+        const selfPingRes = await keepAliveTracker.triggerManualSelfPing();
+        const ready = client.isReady();
+        const memoryUsage = process.memoryUsage();
+        const uptimeSec = Math.floor(process.uptime());
+        const stats = keepAliveTracker.getStats();
+
+        res.status(200).json({
+          success: true,
+          latencyMs: selfPingRes.latencyMs || (Date.now() - start),
+          timestamp: new Date().toISOString(),
+          probeResult: {
+            status: ready ? 'UP' : 'STANDBY',
+            operational: true,
+            botReady: ready,
+            state: services.currentState,
+            uptimeSeconds: uptimeSec,
+            memoryMB: Math.round(memoryUsage.rss / 1024 / 1024),
+            selfPingStatus: selfPingRes.status,
+          },
+          stats: {
+            totalPings: stats.totalPings,
+            lastPingAt: stats.lastPingAt,
+            selfPinger: stats.selfPinger,
+          },
+        });
+      } catch (err) {
+        fail(res, '/keepalive/ping', err);
+      }
+    })();
+  });
+
+  // ─── POST /api/keepalive/config (Update Self-Pinger settings) ────────────────
+  router.post('/keepalive/config', (req: Request, res: Response) => {
+    try {
+      const body = req.body as { enabled?: boolean; intervalMinutes?: number };
+      keepAliveTracker.configureSelfPinger({
+        enabled: typeof body?.enabled === 'boolean' ? body.enabled : undefined,
+        intervalMinutes: typeof body?.intervalMinutes === 'number' ? body.intervalMinutes : undefined,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Keep-alive self-pinger configuration updated successfully.',
+        selfPinger: keepAliveTracker.getStats().selfPinger,
+      });
+    } catch (err) {
+      fail(res, '/keepalive/config', err);
+    }
   });
 
   // ─── GET /api/members (Admin or configured) ─────────────────────────────────

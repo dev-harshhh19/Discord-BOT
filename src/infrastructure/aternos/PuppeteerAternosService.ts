@@ -364,7 +364,8 @@ export class PuppeteerAternosService implements IAternosService {
         for (const file of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
           const filePath = path.join(config.browser.userDataDir, file);
           try {
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            // Must use force rmSync because dangling symlinks return false for fs.existsSync
+            fs.rmSync(filePath, { force: true });
           } catch {
             // Ignore lock deletion failures
           }
