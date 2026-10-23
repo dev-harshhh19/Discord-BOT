@@ -10,8 +10,8 @@ import { BUTTON_IDS, ServerState } from '../../types';
  * start-up — inviting a second start request mid-queue.
  */
 export function buildDashboardButtons(state: ServerState): ActionRowBuilder<ButtonBuilder> {
-  const canStart = state === ServerState.OFFLINE || state === ServerState.CRASHED;
-  const canStop = state === ServerState.ONLINE;
+  const canStart = state === ServerState.OFFLINE || state === ServerState.CRASHED || state === ServerState.UNKNOWN;
+  const canStop = state === ServerState.ONLINE || state === ServerState.STARTING || state === ServerState.QUEUEING;
 
   const startButton = new ButtonBuilder()
     .setCustomId(BUTTON_IDS.DASHBOARD_START)

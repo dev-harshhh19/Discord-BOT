@@ -1,40 +1,75 @@
-import { GuildMember, Interaction } from 'discord.js';
+import { GuildMember, Interaction, PermissionFlagsBits } from 'discord.js';
 import { PermissionLevel } from '../types';
 import { config } from '../config/env';
 import { registrationStore } from '../infrastructure/registration/RegistrationStore';
 
 /**
- * Resolves a user's permission level, highest match wins:
- *   Owner → Admin (user id or role) → Trusted (user id, role, or registration)
- *   → Everyone
+ * Resolves a user's permission level based on assigned Discord roles:
+ *   Owner (Guild Owner or Owner role)
+ *   → Admin (Discord Administrator permission or Admin role)
+ *   → Trusted (Trusted role, Minecraft player role, or registered player)
+ *   → Everyone (Standard Discord members)
  *
- * Self-registration (`/register`) grants Trusted only while the feature is
- * enabled, so setting REGISTRATION_ENABLED=false instantly revokes the access
- * it granted without touching the stored registry.
+ * Higher-tier roles inherit all lower-tier permissions via hierarchical comparison (>=).
  */
 export function getUserPermissionLevel(
   member: GuildMember | null,
   userId: string,
 ): PermissionLevel {
-  const { ownerUserIds, adminUserIds, adminRoleIds, minecraftRoleIds, trustedUserIds, trustedRoleIds } =
-    config.permissions;
+  const {
+    adminRoleIds,
+    trustedRoleIds,
+    minecraftRoleIds,
+    ownerRoleIds,
+    ownerUserIds,
+    adminUserIds,
+    trustedUserIds,
+  } = config.permissions;
+
+  // 1. Owner Tier (Role-based: Guild Owner, configured Owner Role, or owner fallback)
+  if (member) {
+    const isGuildOwner = member.guild.ownerId === member.id;
+    const hasOwnerRole = (ownerRoleIds ?? []).some((roleId) => member.roles.cache.has(roleId));
+    if (isGuildOwner || hasOwnerRole) {
+      return PermissionLevel.OWNER;
+    }
+  }
+  if (ownerUserIds.includes(userId)) return PermissionLevel.OWNER;
+
+  if (!member) {
+    // Non-guild context (e.g. DM)
+    return PermissionLevel.EVERYONE;
+  }
 
   const hasRole = (roleIds: string[]): boolean =>
-    member !== null && roleIds.some((roleId) => member.roles.cache.has(roleId));
+    roleIds.some((roleId) => member.roles.cache.has(roleId));
 
-  if (ownerUserIds.includes(userId)) return PermissionLevel.OWNER;
-  if (adminUserIds.includes(userId) || hasRole(adminRoleIds) || hasRole(minecraftRoleIds)) return PermissionLevel.ADMIN;
-  if (trustedUserIds.includes(userId) || hasRole(trustedRoleIds)) return PermissionLevel.TRUSTED;
-  if (config.registration.enabled && registrationStore.has(userId)) return PermissionLevel.TRUSTED;
+  // 2. Admin Tier (Role-based: Discord Administrator permission or assigned Admin Role)
+  const hasAdminPerm = member.permissions.has(PermissionFlagsBits.Administrator);
+  const hasAdminRole = hasRole(adminRoleIds);
+  if (hasAdminPerm || hasAdminRole || adminUserIds.includes(userId)) {
+    return PermissionLevel.ADMIN;
+  }
 
+  // 3. Trusted Tier (Level 2: Trusted Role or trusted user id fallback)
+  const hasTrustedRole = hasRole(trustedRoleIds);
+  if (hasTrustedRole || trustedUserIds.includes(userId)) {
+    return PermissionLevel.TRUSTED;
+  }
+
+  // 4. Minecraft_Role Tier (Level 1: Minecraft Role or registered player)
+  const hasMinecraftRole = hasRole(minecraftRoleIds);
+  const isRegisteredPlayer = config.registration.enabled && registrationStore.has(userId);
+  if (hasMinecraftRole || isRegisteredPlayer) {
+    return PermissionLevel.MINECRAFT;
+  }
+
+  // 5. Everyone Tier (Level 0: Standard general commands & player commands)
   return PermissionLevel.EVERYONE;
 }
 
 /**
  * Resolves the permission level for any interaction type.
- *
- * `interaction.member` is only a `GuildMember` inside a guild; in DMs it is
- * null, which correctly limits role-derived permissions to guild context.
  */
 export function resolvePermissionLevel(interaction: Interaction): PermissionLevel {
   const member = interaction.member instanceof GuildMember ? interaction.member : null;
@@ -54,7 +89,9 @@ export function permissionLevelName(level: PermissionLevel): string {
     case PermissionLevel.ADMIN:
       return 'Admin';
     case PermissionLevel.TRUSTED:
-      return 'Trusted Member';
+      return 'Trusted';
+    case PermissionLevel.MINECRAFT:
+      return 'Minecraft_Role';
     case PermissionLevel.EVERYONE:
     default:
       return 'Everyone';

@@ -19,18 +19,18 @@ function selector(name: string, fallback: string): string {
 
 export const ATERNOS_SELECTORS = {
   // Login page
-  LOGIN_USERNAME: selector('LOGIN_USERNAME', '#user'),
-  LOGIN_PASSWORD: selector('LOGIN_PASSWORD', '#password'),
-  LOGIN_BUTTON: selector('LOGIN_BUTTON', '.login-button'),
+  LOGIN_USERNAME: selector('LOGIN_USERNAME', 'input[placeholder*="Username"], input[type="text"]:not([style*="display: none"]), #user'),
+  LOGIN_PASSWORD: selector('LOGIN_PASSWORD', 'input[type="password"], #password'),
+  LOGIN_BUTTON: selector('LOGIN_BUTTON', '.login-button, button[type="submit"]'),
   LOGIN_ERROR: selector('LOGIN_ERROR', '.login-error'),
 
   // Server panel status
-  STATUS_LABEL: selector('STATUS_LABEL', '.statuslabel-label, .status .statuslabel-label'),
+  STATUS_LABEL: selector('STATUS_LABEL', '.server-status, .statuslabel-label, .status .statuslabel-label'),
 
   // Action buttons. Aternos uses ids here; the older `.btn-start` classes are
   // kept as trailing fallbacks.
-  START_BUTTON: selector('START_BUTTON', '#start, .btn-start'),
-  STOP_BUTTON: selector('STOP_BUTTON', '#stop, .btn-stop'),
+  START_BUTTON: selector('START_BUTTON', '#start, .btn-start, button#start'),
+  STOP_BUTTON: selector('STOP_BUTTON', '#stop, .btn-stop, button#stop'),
   RESTART_BUTTON: selector('RESTART_BUTTON', '#restart, .btn-restart'),
   CONFIRM_BUTTON: selector('CONFIRM_BUTTON', '#confirm, .btn-confirm'),
 

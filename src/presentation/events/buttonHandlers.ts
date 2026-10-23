@@ -59,13 +59,17 @@ export const buttonHandlers: ReadonlyMap<string, ButtonHandler> = new Map<string
     BUTTON_IDS.DASHBOARD_STOP,
     {
       customId: BUTTON_IDS.DASHBOARD_STOP,
-      requiredPermission: PermissionLevel.ADMIN,
+      requiredPermission: PermissionLevel.TRUSTED,
       async execute(interaction, services): Promise<void> {
-        if (services.currentState !== ServerState.ONLINE) {
+        if (
+          services.currentState !== ServerState.ONLINE &&
+          services.currentState !== ServerState.STARTING &&
+          services.currentState !== ServerState.QUEUEING
+        ) {
           await interaction.reply({
             embeds: [
               buildErrorEmbed(
-                `The server is not online (current state: ${services.currentState.toLowerCase()}).`,
+                `The server is not online or starting (current state: ${services.currentState.toLowerCase()}).`,
               ),
             ],
             flags: MessageFlags.Ephemeral,
@@ -108,7 +112,7 @@ export const buttonHandlers: ReadonlyMap<string, ButtonHandler> = new Map<string
     BUTTON_IDS.STOP_CONFIRM,
     {
       customId: BUTTON_IDS.STOP_CONFIRM,
-      requiredPermission: PermissionLevel.ADMIN,
+      requiredPermission: PermissionLevel.TRUSTED,
       async execute(interaction, services): Promise<void> {
         await interaction.deferUpdate();
         try {

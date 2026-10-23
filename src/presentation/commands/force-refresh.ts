@@ -7,9 +7,9 @@ import { describeError } from './shared';
 export const forceRefreshCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName('force-refresh')
-    .setDescription('Clear all caches, reload Aternos panel, and fetch fresh live status (Owner only)'),
+    .setDescription('Clear all caches, reload Aternos panel, and fetch fresh live status (Admin only)'),
 
-  requiredPermission: PermissionLevel.OWNER,
+  requiredPermission: PermissionLevel.ADMIN,
 
   async execute(
     interaction: ChatInputCommandInteraction,

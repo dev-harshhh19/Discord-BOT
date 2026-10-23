@@ -18,17 +18,21 @@ export const stopCommand: BotCommand = {
     .setName('stop')
     .setDescription(commandDescription('Stop the {server} server (requires confirmation)')),
 
-  requiredPermission: PermissionLevel.ADMIN,
+  requiredPermission: PermissionLevel.TRUSTED,
 
   async execute(
     interaction: ChatInputCommandInteraction,
     services: ServiceContainer,
   ): Promise<void> {
-    if (services.currentState !== ServerState.ONLINE) {
+    if (
+      services.currentState !== ServerState.ONLINE &&
+      services.currentState !== ServerState.STARTING &&
+      services.currentState !== ServerState.QUEUEING
+    ) {
       await interaction.reply({
         embeds: [
           buildErrorEmbed(
-            `The server is not online (current state: ${services.currentState.toLowerCase()}).`,
+            `The server is not online or starting (current state: ${services.currentState.toLowerCase()}).`,
           ),
         ],
         flags: MessageFlags.Ephemeral,

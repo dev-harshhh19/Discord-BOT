@@ -10,7 +10,7 @@ export const playersCommand: BotCommand = {
     .setName('players')
     .setDescription(commandDescription('View players currently connected to {server}')),
 
-  requiredPermission: PermissionLevel.TRUSTED,
+  requiredPermission: PermissionLevel.EVERYONE,
 
   async execute(
     interaction: ChatInputCommandInteraction,

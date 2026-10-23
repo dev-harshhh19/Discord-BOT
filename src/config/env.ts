@@ -33,6 +33,8 @@ export interface AppConfig {
     serverUrl: string;
     /** Parsed out of `serverUrl`; empty when the URL carries no identifier. */
     serverId: string;
+    startUrl: string | undefined;
+    stopUrl: string | undefined;
   };
   minecraft: {
     address: string;
@@ -47,6 +49,7 @@ export interface AppConfig {
   };
   permissions: {
     ownerUserIds: string[];
+    ownerRoleIds?: string[];
     adminUserIds: string[];
     adminRoleIds: string[];
     minecraftRoleIds: string[];
@@ -270,6 +273,8 @@ export const config: AppConfig = {
     session: raw('ATERNOS_SESSION'),
     serverUrl,
     serverId: extractServerId(serverUrl),
+    startUrl: raw('ATERNOS_START_URL'),
+    stopUrl: raw('ATERNOS_STOP_URL'),
   },
 
   minecraft: {
@@ -285,6 +290,7 @@ export const config: AppConfig = {
 
   permissions: {
     ownerUserIds: validateSnowflakeList('OWNER_USER_IDS', optList('OWNER_USER_IDS')),
+    ownerRoleIds: validateSnowflakeList('OWNER_ROLE_IDS', optList('OWNER_ROLE_IDS')),
     adminUserIds: validateSnowflakeList('ADMIN_USER_IDS', optList('ADMIN_USER_IDS')),
     adminRoleIds: validateSnowflakeList('ADMIN_ROLE_IDS', optList('ADMIN_ROLE_IDS')),
     minecraftRoleIds: validateSnowflakeList('MINECRAFT_ROLE_IDS', optList('MINECRAFT_ROLE_IDS')),
@@ -325,7 +331,7 @@ export const config: AppConfig = {
 
   web: {
     enabled: optBool('WEB_ENABLED', true),
-    port: 3000,
+    port: optInt('PORT', optInt('WEB_PORT', 3000, 1, 65535), 1, 65535),
     host: optStr('WEB_HOST', '0.0.0.0'),
     adminPassword: optStr('DASHBOARD_ADMIN_PASSWORD', optStr('WEB_ADMIN_PASSWORD', optStr('WEB_TOKEN', ''))),
     token: optStr('DASHBOARD_ADMIN_PASSWORD', optStr('WEB_ADMIN_PASSWORD', optStr('WEB_TOKEN', ''))),

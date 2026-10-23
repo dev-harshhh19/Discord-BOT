@@ -257,42 +257,44 @@ export function buildHelpEmbed(permLevel: PermissionLevel): EmbedBuilder {
     .setFooter(footer());
 
   embed.addFields({
-    name: 'Everyone',
+    name: 'Everyone (Level 0)',
     value: [
       '`/status` — current server state',
       '`/info` — connection details',
-      '`/help` — this message',
-      ...(config.registration.enabled && permLevel < PermissionLevel.TRUSTED
-        ? ['`/register` — register yourself for Trusted access']
+      '`/players` — view connected players',
+      '`/ping` — measure latency',
+      '`/help` — view available commands',
+      ...(config.registration.enabled && permLevel < PermissionLevel.MINECRAFT
+        ? ['`/register` — link your Minecraft username']
         : []),
     ].join('\n'),
   });
 
+  if (permLevel >= PermissionLevel.MINECRAFT) {
+    embed.addFields({
+      name: 'Minecraft_Role (Level 1)',
+      value: '`/start` — start the Minecraft server',
+    });
+  }
+
   if (permLevel >= PermissionLevel.TRUSTED) {
     embed.addFields({
-      name: 'Trusted Members',
-      value: [
-        '`/start` — start the server',
-        '`/players` — who is online',
-        '`/ping` — measure latency',
-      ].join('\n'),
+      name: 'Trusted (Level 2)',
+      value: '`/stop` — stop the server (with confirmation)',
     });
   }
 
   if (permLevel >= PermissionLevel.ADMIN) {
     embed.addFields({
-      name: 'Administrators',
-      value: '`/stop` — stop the server (requires confirmation)',
+      name: 'Admin (Level 3)',
+      value: '`/force-refresh` — clear cache, reload panel & refresh all bot states',
     });
   }
 
   if (permLevel >= PermissionLevel.OWNER) {
     embed.addFields({
-      name: 'Owner',
-      value: [
-        '`/restart` — restart the server via direct AJAX / sequence',
-        '`/force-refresh` — clear cache, reload panel & refresh all bot states',
-      ].join('\n'),
+      name: 'Owner (Level 4)',
+      value: '`/restart` — restart the server via direct AJAX / sequence',
     });
   }
 

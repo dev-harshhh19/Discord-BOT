@@ -428,34 +428,36 @@ export function createApiRouter(
         tiers: [
           {
             level: PermissionLevel.OWNER,
-            name: 'Owner / Super Admin',
-            description: 'Exclusive authorization for /restart and critical host control.',
+            name: 'Owner',
+            description: 'Full access to all commands, features, and controls, including /restart, with no restrictions.',
             userIds: isAdmin ? config.permissions.ownerUserIds : [],
-            roleIds: [],
+            roleIds: isAdmin ? (config.permissions.ownerRoleIds ?? []) : [],
           },
           {
             level: PermissionLevel.ADMIN,
-            name: 'Admin / Minecraft Role',
-            description: 'Can run all commands (/stop, /start, /players, /ping, etc.) except /restart.',
+            name: 'Admin',
+            description: 'All Trusted permissions + /force-refresh, panel sync, and Web Admin management.',
             userIds: isAdmin ? config.permissions.adminUserIds : [],
-            roleIds: isAdmin
-              ? [
-                ...config.permissions.adminRoleIds,
-                ...config.permissions.minecraftRoleIds.map((id) => `${id} [Minecraft Role]`),
-              ]
-              : [],
+            roleIds: isAdmin ? config.permissions.adminRoleIds : [],
           },
           {
             level: PermissionLevel.TRUSTED,
-            name: 'Trusted Member',
-            description: 'Can start the server and query detailed player stats.',
+            name: 'Trusted',
+            description: 'All + Minecraft_Role permissions + /stop, dashboard Start & Stop buttons, and Stop Confirmation button.',
             userIds: isAdmin ? config.permissions.trustedUserIds : [],
             roleIds: isAdmin ? config.permissions.trustedRoleIds : [],
           },
           {
+            level: PermissionLevel.MINECRAFT,
+            name: 'Minecraft_Role',
+            description: 'All Everyone permissions + /start.',
+            userIds: [],
+            roleIds: isAdmin ? config.permissions.minecraftRoleIds : [],
+          },
+          {
             level: PermissionLevel.EVERYONE,
             name: 'Everyone',
-            description: 'Public commands: /status, /info, /help, /register.',
+            description: 'Public commands: /status, /info, /players, /ping, /help, /register, /privacy, /terms, and dashboard Refresh button.',
             userIds: [],
             roleIds: ['@everyone'],
           },

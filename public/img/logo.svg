@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="brand-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EA580C"/>
+      <stop offset="100%" stop-color="#F97316"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="10" fill="url(#brand-grad)"/>
+  <!-- Minecraft Isometric Cube Outline in crisp white -->
+  <path d="M24 10 L38 18 L24 26 L10 18 Z" fill="#FFFFFF" fill-opacity="0.95"/>
+  <path d="M10 18 L24 26 L24 38 L10 30 Z" fill="#FFFFFF" fill-opacity="0.75"/>
+  <path d="M24 26 L38 18 L38 30 L24 38 Z" fill="#FFFFFF" fill-opacity="0.85"/>
+</svg>

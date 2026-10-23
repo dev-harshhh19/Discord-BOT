@@ -20,6 +20,16 @@ import { chromiumPathIsValid, describePlatform, platform } from '../../config/pl
 puppeteer.use(StealthPlugin());
 
 /** Errors that mean "the page navigated out from under us", not "something broke". */
+function extractUrlParam(urlStr: string | undefined, param: string): string {
+  if (!urlStr) return '';
+  try {
+    const parsed = new URL(urlStr);
+    return parsed.searchParams.get(param) ?? '';
+  } catch {
+    return '';
+  }
+}
+
 function isNavigationRace(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return (
@@ -97,17 +107,27 @@ export class PuppeteerAternosService implements IAternosService {
         return;
       }
 
-      // Try DOM button first, fall back to AJAX endpoint
+      // Try configured AJAX start URL first, then DOM button, then dynamic AJAX endpoint
       let started = false;
-      try {
-        await this.clickOrThrow(page, ATERNOS_SELECTORS.START_BUTTON, 'Start');
-        logger.info('Clicked the Aternos Start button.');
-        started = true;
-      } catch (err) {
-        logger.warn(`Start button click failed (${String(err)}); attempting AJAX start endpoint...`);
-        started = await this.executeAjaxAction(page, 'start');
-        if (!started) {
-          throw err;
+      if (config.aternos.startUrl) {
+        logger.info('Attempting server start via configured Aternos AJAX start endpoint...');
+        started = await this.executeAjaxUrl(page, config.aternos.startUrl);
+        if (started) {
+          logger.info('Aternos server start dispatched successfully via AJAX start URL.');
+        }
+      }
+
+      if (!started) {
+        try {
+          await this.clickOrThrow(page, ATERNOS_SELECTORS.START_BUTTON, 'Start');
+          logger.info('Clicked the Aternos Start button.');
+          started = true;
+        } catch (err) {
+          logger.warn(`Start button click failed (${String(err)}); attempting AJAX start endpoint...`);
+          started = await this.executeAjaxAction(page, 'start');
+          if (!started) {
+            throw err;
+          }
         }
       }
 
@@ -129,28 +149,42 @@ export class PuppeteerAternosService implements IAternosService {
 
       // Support stopping while booting/starting as well as normal stopping
       let stopped = false;
-      const stopSelectors = [
-        ATERNOS_SELECTORS.STOP_BUTTON,
-        '#stop',
-        '.btn-stop',
-        '.btn-danger',
-        '[data-action="stop"]',
-      ];
 
-      for (const sel of stopSelectors) {
-        stopped = await this.clickIfPresent(page, sel, 'Stop button', 2000);
+      // 1. Try explicit AJAX stop URL if configured
+      if (config.aternos.stopUrl) {
+        logger.info('Attempting server stop via configured Aternos AJAX stop endpoint...');
+        stopped = await this.executeAjaxUrl(page, config.aternos.stopUrl);
         if (stopped) {
-          logger.info(`Clicked the Aternos Stop button (selector: ${sel}).`);
-          // Aternos often shows a sweetalert confirmation modal after clicking stop
-          try {
-            await this.clickIfPresent(page, '.sweet-alert .confirm, .sweet-alert .btn-danger, #confirm', 'Confirm Stop modal button', 3000);
-          } catch {
-            // sweetalert confirmation modal is optional
-          }
-          break;
+          logger.info('Aternos server stop dispatched successfully via AJAX stop URL.');
         }
       }
 
+      // 2. If not stopped, try clicking DOM stop button
+      if (!stopped) {
+        const stopSelectors = [
+          ATERNOS_SELECTORS.STOP_BUTTON,
+          '#stop',
+          '.btn-stop',
+          '.btn-danger',
+          '[data-action="stop"]',
+        ];
+
+        for (const sel of stopSelectors) {
+          stopped = await this.clickIfPresent(page, sel, 'Stop button', 2000);
+          if (stopped) {
+            logger.info(`Clicked the Aternos Stop button (selector: ${sel}).`);
+            // Aternos often shows a sweetalert confirmation modal after clicking stop
+            try {
+              await this.clickIfPresent(page, '.sweet-alert .confirm, .sweet-alert .btn-danger, #confirm', 'Confirm Stop modal button', 3000);
+            } catch {
+              // sweetalert confirmation modal is optional
+            }
+            break;
+          }
+        }
+      }
+
+      // 3. Fall back to dynamic AJAX endpoint if neither succeeded
       if (!stopped) {
         logger.info('Stop button not clickable in DOM; executing direct AJAX /ajax/server/stop...');
         stopped = await this.executeAjaxAction(page, 'stop');
@@ -599,14 +633,12 @@ export class PuppeteerAternosService implements IAternosService {
     await this.dismissConsentBanners(page);
     await this.seedCookies(page);
 
-    const target =
-      config.aternos.serverId !== '' ? config.aternos.serverUrl : ATERNOS_URLS.SERVER_PANEL;
-    await this.safeGoto(page, target);
+    await this.safeGoto(page, ATERNOS_URLS.SERVER_PANEL);
 
-    if (this.needsLogin(page)) {
+    if (await this.needsLogin(page)) {
       logger.info('Aternos session is not authenticated; logging in.');
       await this.performLogin(page);
-      await this.safeGoto(page, target);
+      await this.safeGoto(page, ATERNOS_URLS.SERVER_PANEL);
     }
 
     await this.selectServerIfOnServerList(page);
@@ -634,14 +666,24 @@ export class PuppeteerAternosService implements IAternosService {
     }
   }
 
-  private needsLogin(page: Page): boolean {
-    let url = '';
+  private async needsLogin(page: Page): Promise<boolean> {
     try {
-      url = page.url();
+      const url = page.url();
+      if (url.includes('/login') || url.includes('/go/?target') || url.endsWith('/go/')) {
+        return true;
+      }
+      if (url.includes('/go')) {
+        const hasLoginForm = await page.$('.login-button, input[type="password"]');
+        if (hasLoginForm !== null) return true;
+      }
+      const title = await page.title();
+      if (title.toLowerCase().includes('login') || title.toLowerCase().includes('sign up')) {
+        return true;
+      }
+      return false;
     } catch {
       return false;
     }
-    return url.includes('/login') || url.includes('/go/?target') || url.endsWith('/go/');
   }
 
   private async seedCookies(page: Page): Promise<void> {
@@ -757,6 +799,26 @@ export class PuppeteerAternosService implements IAternosService {
       await sleep(1500);
     }
 
+    try {
+      const cookies = await page.cookies();
+      const sessionCookie = cookies.find((c) => c.name === 'ATERNOS_SESSION');
+      if (sessionCookie && sessionCookie.value) {
+        config.aternos.session = sessionCookie.value;
+        logger.debug('Captured fresh ATERNOS_SESSION cookie from browser.');
+      }
+    } catch {
+      // Non-fatal
+    }
+    try {
+      const cookies = await page.cookies();
+      const sessionCookie = cookies.find((c) => c.name === 'ATERNOS_SESSION');
+      if (sessionCookie && sessionCookie.value) {
+        config.aternos.session = sessionCookie.value;
+        logger.debug('Captured fresh ATERNOS_SESSION cookie from browser.');
+      }
+    } catch {
+      // Non-fatal
+    }
     logger.info('Authenticated with Aternos.');
   }
 
@@ -764,6 +826,9 @@ export class PuppeteerAternosService implements IAternosService {
     const selectors = [
       ...CONSENT_SELECTORS,
       ATERNOS_SELECTORS.CLOSE_MODAL_BUTTON,
+      '#compatibility-warning-dismiss',
+      '.modal-close',
+      '.btn-light.dismiss',
     ];
 
     for (const selector of selectors) {
@@ -852,27 +917,114 @@ export class PuppeteerAternosService implements IAternosService {
   }
 
   /**
+   * Executes an explicit Aternos AJAX URL within the authenticated browser context.
+   */
+  private async executeAjaxUrl(page: Page, ajaxUrl: string): Promise<boolean> {
+    try {
+      const result = await page.evaluate(async (url: string) => {
+        try {
+          const res = await fetch(url, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json, text/javascript, */*; q=0.01',
+            },
+          });
+          if (!res.ok) {
+            let errBody = '';
+            try { errBody = await res.text(); } catch { /* ignore */ }
+            return { ok: false, status: res.status, body: errBody };
+          }
+          const text = await res.text();
+          let json: { success?: boolean; error?: string } | null = null;
+          try {
+            json = JSON.parse(text) as { success?: boolean; error?: string };
+          } catch {
+            // response might not be JSON
+          }
+          if (json && json.success === false) {
+            return { ok: false, status: res.status, body: text, error: json.error };
+          }
+          return { ok: true, status: res.status, body: text };
+        } catch (fetchErr) {
+          return { ok: false, status: 0, body: String(fetchErr) };
+        }
+      }, ajaxUrl);
+
+      if (result.ok) {
+        logger.info(`Aternos AJAX URL succeeded (${ajaxUrl.split('?')[0]}). Response: ${result.body}`);
+        return true;
+      }
+      logger.warn(
+        `Aternos AJAX URL was not accepted (status ${result.status}). Response: ${result.body || result.error || 'none'}`
+      );
+      return false;
+    } catch (err) {
+      logger.warn(`Failed to execute Aternos AJAX URL: ${String(err)}`);
+      return false;
+    }
+  }
+
+  /**
    * Executes a native Aternos AJAX action (/ajax/server/start, /ajax/server/stop, /ajax/server/restart)
-   * using the session tokens (SEC, TOKEN) and SERVER id available on window.
+   * using the session tokens (SEC, TOKEN) and SERVER id available on window or configured endpoints.
    */
   private async executeAjaxAction(page: Page, action: 'start' | 'stop' | 'restart'): Promise<boolean> {
     try {
-      const success = await page.evaluate(async (act: string, serverId: string) => {
-        const w = window as unknown as { TOKEN?: unknown; SEC?: unknown; aternos?: { server?: { id?: string } } };
-        if (typeof w.TOKEN !== 'string' || typeof w.SEC !== 'string') return false;
+      const fallbackToken =
+        action === 'stop'
+          ? extractUrlParam(config.aternos.stopUrl, 'TOKEN') || extractUrlParam(config.aternos.startUrl, 'TOKEN')
+          : extractUrlParam(config.aternos.startUrl, 'TOKEN') || extractUrlParam(config.aternos.stopUrl, 'TOKEN');
 
-        const params = new URLSearchParams({ SEC: w.SEC, TOKEN: w.TOKEN });
-        const targetServer = serverId || (typeof w.aternos?.server?.id === 'string' ? w.aternos.server.id : '');
-        if (targetServer !== '') params.set('SERVER', targetServer);
+      const fallbackSec =
+        action === 'stop'
+          ? extractUrlParam(config.aternos.stopUrl, 'SEC')
+          : extractUrlParam(config.aternos.startUrl, 'SEC');
 
-        const res = await fetch(`/ajax/server/${act}?${params.toString()}`, {
-          credentials: 'include',
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-        });
-        return res.ok;
-      }, action, config.aternos.serverId);
+      const success = await page.evaluate(
+        async (act: string, serverId: string, fbToken: string, fbSec: string) => {
+          const w = window as unknown as {
+            TOKEN?: unknown;
+            SEC?: unknown;
+            ajaxToken?: unknown;
+            aternos?: { server?: { id?: string } };
+          };
+
+          const token =
+            (typeof w.TOKEN === 'string' && w.TOKEN !== '' ? w.TOKEN : null) ??
+            (typeof w.ajaxToken === 'string' && w.ajaxToken !== '' ? w.ajaxToken : null) ??
+            fbToken;
+
+          const sec =
+            (typeof w.SEC === 'string' && w.SEC !== '' ? w.SEC : null) ??
+            fbSec;
+
+          if (!token || !sec) return false;
+
+          const params = new URLSearchParams();
+          if (act === 'start') {
+            params.set('access-credits', 'false');
+          }
+          params.set('TOKEN', token);
+          params.set('SEC', sec);
+          const targetServer = serverId || (typeof w.aternos?.server?.id === 'string' ? w.aternos.server.id : '');
+          if (targetServer !== '') params.set('SERVER', targetServer);
+
+          const res = await fetch(`/ajax/server/${act}?${params.toString()}`, {
+            credentials: 'include',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json, text/javascript, */*; q=0.01',
+            },
+          });
+          return res.ok;
+        },
+        action,
+        config.aternos.serverId,
+        fallbackToken,
+        fallbackSec,
+      );
 
       if (success) {
         logger.info(`Aternos AJAX action /ajax/server/${action} accepted.`);

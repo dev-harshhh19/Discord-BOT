@@ -20,9 +20,10 @@ export enum ServerState {
 
 export enum PermissionLevel {
   EVERYONE = 0,
-  TRUSTED = 1,
-  ADMIN = 2,
-  OWNER = 3,
+  MINECRAFT = 1,
+  TRUSTED = 2,
+  ADMIN = 3,
+  OWNER = 4,
 }
 
 // ─── Minecraft Protocol Types ─────────────────────────────────────────────────

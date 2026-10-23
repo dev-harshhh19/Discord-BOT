@@ -10,7 +10,7 @@ export const startCommand: BotCommand = {
     .setDescription(commandDescription('Start the {server} Minecraft server')),
 
   // Enforced centrally by the interaction router.
-  requiredPermission: PermissionLevel.TRUSTED,
+  requiredPermission: PermissionLevel.MINECRAFT,
 
   async execute(
     interaction: ChatInputCommandInteraction,

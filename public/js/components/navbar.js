@@ -3,7 +3,7 @@ import { store } from '../state.js';
 import { showToast } from './toast.js';
 
 /**
- * Navbar & Header Component
+ * Modern SaaS Navbar & Header Component
  */
 
 export function renderNavbar(container) {
@@ -12,25 +12,19 @@ export function renderNavbar(container) {
   const serverName = state.status?.server?.name || 'Minecraft Server';
   const stateClass = serverState.toLowerCase();
   const isAdmin = state.isAdmin;
+  const brandImgUrl = state.status?.bot?.user?.avatar || '/img/logo.svg';
 
   container.innerHTML = `
     <header class="app-header">
-      <div class="brand-section">
-        <div class="brand-icon">
-          ${getIcon('server')}
-        </div>
+      <div class="brand-section" id="brand-title-link">
+        <img class="brand-img" src="${escapeHtml(brandImgUrl)}" alt="${escapeHtml(serverName)}" onerror="this.src='/img/logo.svg'" />
         <div>
-          <div class="brand-title" style="cursor:pointer;" id="brand-title-link">${escapeHtml(serverName)}</div>
+          <div class="brand-title">${escapeHtml(serverName)}</div>
           <div class="brand-subtitle">Discord Bot & Telemetry Hub</div>
         </div>
       </div>
 
       <div class="header-meta">
-        <button class="theme-toggle-btn" id="theme-toggle-btn" type="button" aria-label="Toggle visual theme" title="Switch to ${state.theme === 'dark' ? 'Light' : 'Dark'} mode">
-          <span class="icon">${state.theme === 'dark' ? getIcon('sun') : getIcon('moon')}</span>
-          <span class="theme-btn-label">${state.theme === 'dark' ? 'Light' : 'Dark'}</span>
-        </button>
-
         <div class="status-pill ${stateClass}" id="header-status-pill">
           <span class="status-dot"></span>
           <span class="status-text">${escapeHtml(serverState)}</span>
@@ -44,32 +38,21 @@ export function renderNavbar(container) {
         <span>Dashboard</span>
       </button>
 
-      <button class="nav-tab-btn ${state.currentTab === 'keepalive' ? 'active' : ''}" data-tab="keepalive" title="24/7 Keep-Alive & Health API">
-        <span class="icon" style="color: var(--color-online);">${getIcon('radio')}</span>
-        <span>24/7 Keep-Alive</span>
-      </button>
-
       <button class="nav-tab-btn ${state.currentTab === 'members' ? 'active' : ''}" data-tab="members">
         <span class="icon">${getIcon('users')}</span>
-        <span>Members</span>
+        <span>Players</span>
         ${state.members?.length ? `<span class="badge-count">${state.members.length}</span>` : ''}
-      </button>
-
-      <button class="nav-tab-btn ${state.currentTab === 'access' ? 'active' : ''}" data-tab="access">
-        <span class="icon">${getIcon('shield')}</span>
-        <span>Access</span>
-        ${!isAdmin ? `<span class="icon" style="color: var(--text-dim);">${getIcon('lock')}</span>` : ''}
       </button>
 
       <button class="nav-tab-btn ${state.currentTab === 'logs' ? 'active' : ''}" data-tab="logs">
         <span class="icon">${getIcon('terminal')}</span>
-        <span>Logs</span>
+        <span>Live Console</span>
         ${!isAdmin ? `<span class="icon" style="color: var(--text-dim);">${getIcon('lock')}</span>` : ''}
       </button>
 
-      <button class="nav-tab-btn ${state.currentTab === 'landing' ? 'active' : ''}" data-tab="landing">
-        <span class="icon">${getIcon('home')}</span>
-        <span>Home</span>
+      <button class="nav-tab-btn ${state.currentTab === 'access' ? 'active' : ''}" data-tab="access">
+        <span class="icon">${getIcon('shield')}</span>
+        <span>Commands</span>
       </button>
 
       <div style="flex-grow: 1;"></div>
@@ -77,14 +60,14 @@ export function renderNavbar(container) {
       ${
         isAdmin
           ? `
-        <button class="nav-tab-btn" id="auth-lock-btn" title="Logged in as Admin. Click to lock session.">
-          <span class="icon">${getIcon('logOut')}</span>
+        <button class="nav-tab-btn auth-btn" id="auth-lock-btn" title="Logged in as Admin. Click to log out.">
+          <span class="icon" style="color: var(--color-primary);">${getIcon('logOut')}</span>
           <span>Log Out</span>
         </button>
       `
           : `
-        <button class="nav-tab-btn ${state.currentTab === 'login' ? 'active' : ''}" data-tab="login">
-          <span class="icon">${getIcon('key')}</span>
+        <button class="nav-tab-btn auth-btn ${state.currentTab === 'login' ? 'active' : ''}" data-tab="login">
+          <span class="icon" style="color: var(--color-primary);">${getIcon('key')}</span>
           <span>Admin Login</span>
         </button>
       `
@@ -93,10 +76,6 @@ export function renderNavbar(container) {
   `;
 
   // Attach event handlers
-  container.querySelector('#theme-toggle-btn')?.addEventListener('click', () => {
-    store.toggleTheme();
-  });
-
   container.querySelector('#brand-title-link')?.addEventListener('click', () => {
     store.setCurrentTab('overview');
   });
@@ -107,7 +86,7 @@ export function renderNavbar(container) {
     showToast('Admin session locked.', 'info');
   });
 
-  const tabButtons = container.querySelectorAll('.nav-tab-btn');
+  const tabButtons = container.querySelectorAll('.nav-tab-btn[data-tab]');
   tabButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       const targetTab = btn.dataset.tab;

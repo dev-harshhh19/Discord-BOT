@@ -4,32 +4,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TomMC-SMP Server Telemetry & Bot Hub</title>
+  <title>Minecraft Server Manager — Discord Bot Hub</title>
   <meta name="description"
-    content="TomMC-SMP Minecraft Server Management Dashboard, Discord Bot Telemetry, and Role Control Hub." />
+    content="High-performance Minecraft Server Management Dashboard, Discord Control Hub, and Live Telemetry." />
 
-  <!-- Distinctive Architectural Typography (Anti-Slop Paired Hierarchy) -->
+  <!-- Brand Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+
+  <!-- Premium Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..600&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..600&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
     rel="stylesheet" />
 
-  <!-- Early Theme Sync Script (Prevents flash of unstyled theme) -->
-  <script>
-    (function () {
-      try {
-        var saved = localStorage.getItem('tommc_theme');
-        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        var theme = saved === 'dark' || saved === 'light' ? saved : (prefersDark ? 'dark' : 'light');
-        document.documentElement.setAttribute('data-theme', theme);
-      } catch (e) {}
-    })();
-  </script>
-
-  <!-- Physical Design System Stylesheets -->
-  <link rel="stylesheet" href="/css/theme.css?v=4.0" />
-  <link rel="stylesheet" href="/css/components.css?v=4.0" />
+  <!-- Modern SaaS Theme Stylesheets -->
+  <link rel="stylesheet" href="/css/theme.css?v=5.0" />
+  <link rel="stylesheet" href="/css/components.css?v=5.0" />
 </head>
 
 <body>
@@ -40,35 +31,23 @@
     <!-- Main View Component Mounts -->
     <main id="main-content">
       <div id="tab-overview" class="tab-content active"></div>
-      <div id="tab-keepalive" class="tab-content"></div>
       <div id="tab-members" class="tab-content"></div>
-      <div id="tab-access" class="tab-content"></div>
       <div id="tab-logs" class="tab-content"></div>
-      <div id="tab-dev" class="tab-content"></div>
-      <div id="tab-landing" class="tab-content"></div>
+      <div id="tab-access" class="tab-content"></div>
       <div id="tab-login" class="tab-content"></div>
-      <div id="tab-terms" class="tab-content"></div>
-      <div id="tab-privacy" class="tab-content"></div>
     </main>
 
-    <!-- Footer -->
-    <footer class="app-footer" style="padding: 1.5rem 0; text-align: center; font-size: 0.8125rem; color: var(--text-muted); border-top: 1px solid var(--border-subtle); margin-top: 2rem;">
-      <div style="margin-bottom: 0.5rem;">TomMC-SMP Server Manager &copy; 2026</div>
-      <div>
-        <a href="#" id="footer-link-terms" style="color: var(--text-muted); margin: 0 0.5rem;">Terms of Service</a>
-        <a href="#" id="footer-link-privacy" style="color: var(--text-muted); margin: 0 0.5rem;">Privacy Policy</a>
-      </div>
+    <!-- Clean Footer -->
+    <footer class="app-footer" style="padding: 1.5rem 0; text-align: center; font-size: 0.8125rem; color: var(--text-muted); border-top: 1px solid var(--border-default); margin-top: 2rem;">
+      <div style="font-weight: 500;">Minecraft Server Manager &bull; Discord Bot Hub &copy; 2026</div>
     </footer>
   </div>
 
   <!-- Toast Notification Mount -->
   <div id="toast-container" class="toast-container"></div>
 
-  <!-- D3.js Data Visualization Library -->
-  <script src="/js/d3.min.js"></script>
-
-  <!-- Modular Component Application Bootstrap -->
-  <script type="module" src="/js/app.js?v=4.0"></script>
+  <!-- Modular Lightweight JavaScript Bootstrap -->
+  <script type="module" src="/js/app.js?v=5.0"></script>
 </body>
 
 </html>

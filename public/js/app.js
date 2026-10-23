@@ -5,15 +5,10 @@ import { renderOverview } from './components/overview.js';
 import { renderMembers } from './components/members.js';
 import { renderAccessControl } from './components/accessControl.js';
 import { renderLogs } from './components/logs.js';
-import { renderAboutDev } from './components/aboutDev.js';
-import { renderLanding } from './components/landing.js';
 import { renderLogin } from './components/login.js';
-import { renderTerms } from './components/terms.js';
-import { renderPrivacy } from './components/privacy.js';
-import { renderKeepAlive } from './components/keepalive.js';
 
 /**
- * Main Application Orchestrator
+ * Modern Application Orchestrator
  */
 
 class App {
@@ -21,15 +16,10 @@ class App {
     this.navContainer = document.getElementById('navbar-container');
     this.tabContainers = {
       overview: document.getElementById('tab-overview'),
-      keepalive: document.getElementById('tab-keepalive'),
       members: document.getElementById('tab-members'),
-      access: document.getElementById('tab-access'),
       logs: document.getElementById('tab-logs'),
-      dev: document.getElementById('tab-dev'),
-      landing: document.getElementById('tab-landing'),
+      access: document.getElementById('tab-access'),
       login: document.getElementById('tab-login'),
-      terms: document.getElementById('tab-terms'),
-      privacy: document.getElementById('tab-privacy'),
     };
     this.pollingInterval = null;
     this.activeTab = 'overview';
@@ -43,10 +33,9 @@ class App {
       const adminChanged = state.isAdmin !== this.lastAdminState;
 
       if (tabChanged) {
-        // Update URL
-        const path = state.currentTab === 'landing' ? '/' : `/${state.currentTab}`;
-        if (window.location.pathname !== path && path !== '/terms-and-service' && path !== '/privacy-policy') {
-            window.history.pushState({ tab: state.currentTab }, '', path);
+        const path = state.currentTab === 'overview' ? '/' : `/${state.currentTab}`;
+        if (window.location.pathname !== path) {
+          window.history.pushState({ tab: state.currentTab }, '', path);
         }
       }
 
@@ -69,69 +58,45 @@ class App {
       this.lastAdminState = authRes.authenticated;
     }
 
-    // 2.5 Handle initial URL routing
+    // 3. Routing
     this.handleRouting();
     window.addEventListener('popstate', () => this.handleRouting());
 
-    // 3. Initial load
+    // 4. Initial load
     await Promise.all([
       this.fetchStatus(),
-      this.fetchDevProfile(),
       this.fetchTabContent(store.getState().currentTab, true),
       this.fetchTabContent('members', false),
       this.fetchTabContent('access', false),
     ]);
 
-    // 4. Start calm background polling (8 seconds, paused when tab is inactive)
+    // 5. Calm background polling (8s when active tab, paused in background)
     this.startPolling();
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
         void this.fetchStatus();
       }
     });
-
-    // 5. Attach footer link handlers
-    document.getElementById('footer-link-terms')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      store.setCurrentTab('terms');
-    });
-    document.getElementById('footer-link-privacy')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      store.setCurrentTab('privacy');
-    });
   }
 
   handleRouting() {
     const path = window.location.pathname.toLowerCase();
-    
-    // Map URLs to tabs
-    if (path.includes('terms') || path.includes('t&c')) {
-      store.setCurrentTab('terms');
-    } else if (path.includes('privacy')) {
-      store.setCurrentTab('privacy');
-    } else if (path === '/overview' || path === '/dashboard') {
-      store.setCurrentTab('overview');
-    } else if (path === '/keepalive' || path === '/health-check' || path === '/ping-status') {
-      store.setCurrentTab('keepalive');
+    if (path === '/members' || path === '/players') {
+      store.setCurrentTab('members');
+    } else if (path === '/logs' || path === '/console') {
+      store.setCurrentTab('logs');
+    } else if (path === '/access' || path === '/commands') {
+      store.setCurrentTab('access');
     } else if (path === '/login') {
       store.setCurrentTab('login');
-    } else if (path === '/members') {
-      store.setCurrentTab('members');
-    } else if (path === '/logs') {
-      store.setCurrentTab('logs');
-    } else if (path === '/access') {
-      store.setCurrentTab('access');
-    } else if (path === '/dev') {
-      store.setCurrentTab('dev');
     } else {
-      store.setCurrentTab('overview'); // default
+      store.setCurrentTab('overview');
     }
   }
 
   startPolling() {
     if (this.pollingInterval) clearInterval(this.pollingInterval);
     this.pollingInterval = setInterval(async () => {
-      // Pause polling if document is hidden to conserve server requests and prevent rate limits
       if (document.hidden) return;
 
       await this.fetchStatus(true);
@@ -153,29 +118,6 @@ class App {
         status: res,
         isAdmin: res.role === 'admin' || store.getState().isAdmin,
       });
-
-      // Record telemetry data point for real-time D3 visualization
-      const serverLatency = res.server?.latency !== null && res.server?.latency !== undefined
-        ? Number(res.server.latency)
-        : null;
-      const botPing = res.bot?.ping !== null && res.bot?.ping !== undefined && res.bot.ping >= 0
-        ? Number(res.bot.ping)
-        : null;
-
-      store.recordTelemetry({
-        timestamp: Date.now(),
-        serverLatency,
-        botPing,
-        state: res.server?.state || 'UNKNOWN',
-        memoryMb: res.bot?.memory?.rssMB || null,
-      });
-    }
-  }
-
-  async fetchDevProfile() {
-    const res = await api.getDevInfo();
-    if (res.success) {
-      store.update({ devProfile: res });
     }
   }
 
@@ -204,11 +146,6 @@ class App {
         }
       } else if (tab === 'overview' && force) {
         await this.fetchStatus();
-      } else if (tab === 'keepalive') {
-        const kaRes = await api.getKeepAlive();
-        if (kaRes && kaRes.success) {
-          store.update({ keepalive: kaRes });
-        }
       }
     } catch (err) {
       console.error(`Error fetching tab content for ${tab}:`, err);
@@ -216,28 +153,20 @@ class App {
   }
 
   render(state) {
-    // Render Header & Navigation
     if (this.navContainer) {
       renderNavbar(this.navContainer);
     }
 
-    // Toggle active tab content visibility
     for (const [tabKey, container] of Object.entries(this.tabContainers)) {
       if (!container) continue;
 
       if (tabKey === state.currentTab) {
         container.classList.add('active');
-        // Render content for this tab
         if (tabKey === 'overview') renderOverview(container);
-        else if (tabKey === 'keepalive') renderKeepAlive(container);
         else if (tabKey === 'members') renderMembers(container);
         else if (tabKey === 'access') renderAccessControl(container);
         else if (tabKey === 'logs') renderLogs(container);
-        else if (tabKey === 'dev') renderAboutDev(container);
-        else if (tabKey === 'landing') renderLanding(container);
         else if (tabKey === 'login') renderLogin(container);
-        else if (tabKey === 'terms') renderTerms(container);
-        else if (tabKey === 'privacy') renderPrivacy(container);
       } else {
         container.classList.remove('active');
       }
@@ -245,7 +174,6 @@ class App {
   }
 }
 
-// Bootstrap application on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
   const app = new App();
   app.init().catch(console.error);

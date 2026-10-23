@@ -1,6 +1,6 @@
 # ==============================================================================
 # TomMC-SMP Bot - Docker Compose Configuration
-# Designed for VPS (x86_64 / ARM64), Raspberry Pi / Home Cloud, and Termux
+# Optimized for 1 vCPU & 2GB RAM Cloud VPS (amd64 / arm64)
 # ==============================================================================
 
 version: '3.8'
@@ -10,21 +10,33 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: devharsh19/aternos-discord-bot:latest
+    image: aternos-discord-bot:latest
     container_name: aternos-discord-bot
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      - PORT=3000
+      - PUPPETEER_LOW_MEMORY=true
     ports:
-      - "${PORT:-5176}:5176"
+      - "${PORT:-3000}:3000"
     volumes:
       # Persist browser session, login cookies, and whitelists across restarts
       - ./data:/app/data
       # Persist application logs
       - ./logs:/app/logs
-    # Allocate shared memory for Chromium browser rendering (prevents browser crashes)
-    shm_size: '1gb'
-    # Security options for Chromium sandbox in containerized environments
+    # Lightweight shared memory (512MB fits comfortably in 2GB VPS RAM)
+    shm_size: '512m'
+    # Resource limits to protect 1-core / 2GB RAM VPS stability
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1536M
+        reservations:
+          memory: 256M
+    mem_limit: 1536m
+    cpus: 1.0
     security_opt:
       - seccomp:unconfined
     logging:

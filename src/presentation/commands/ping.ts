@@ -8,7 +8,7 @@ export const pingCommand: BotCommand = {
     .setName('ping')
     .setDescription('Measure Discord gateway and Minecraft server latency'),
 
-  requiredPermission: PermissionLevel.TRUSTED,
+  requiredPermission: PermissionLevel.EVERYONE,
 
   async execute(
     interaction: ChatInputCommandInteraction,

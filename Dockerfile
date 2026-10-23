@@ -1,10 +1,11 @@
 # ==============================================================================
 # TomMC-SMP Bot - Production Multi-Arch Dockerfile
-# Compatible with x86_64 (amd64), ARM64 (aarch64 / Raspberry Pi / Oracle ARM),
-# VPS, Home Cloud, and Termux/PRoot Linux container environments.
+# Optimized for 1 vCPU & 2GB RAM Cloud VPS, Docker, and Container Environments
 # ==============================================================================
 
+# ------------------------------------------------------------------------------
 # Build Stage: Compile TypeScript to CJS bundle
+# ------------------------------------------------------------------------------
 FROM node:20-bookworm-slim AS builder
 
 WORKDIR /app
@@ -29,12 +30,13 @@ WORKDIR /app
 
 # Set production environment flags
 ENV NODE_ENV=production
+ENV PORT=3000
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_HEADLESS=false
+ENV PUPPETEER_LOW_MEMORY=true
 
-# Install native Chromium, dumb-init, and essential system fonts/libraries
-# Debian Bookworm provides native 'chromium' for both amd64 and arm64.
+# Install native Chromium, dumb-init, xvfb (virtual X11 display), and essential fonts/libs
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     xvfb \
@@ -76,12 +78,12 @@ RUN groupadd -g 10001 botgroup && \
 # Switch to non-root user
 USER botuser
 
-# Expose Web Dashboard & Telemetry port
-EXPOSE 5176
+# Expose Web Dashboard & Telemetry port (default 3000)
+EXPOSE 3000
 
 # Use dumb-init to properly handle UNIX process signals and reap zombie Chromium forks
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start the compiled bot with Xvfb (virtual display) to bypass Cloudflare bot detection
-# Cap V8 heap to 128MB to prevent Docker OOM kills since os.totalmem() reports host RAM
-CMD ["xvfb-run", "-a", "node", "--max-old-space-size=128", "dist/index.js"]
+# Start the compiled bot with Xvfb virtual display
+# Node V8 heap capped to 384MB to prevent out-of-memory crashes on 2GB RAM VPS
+CMD ["xvfb-run", "-a", "node", "--max-old-space-size=384", "dist/index.js"]
