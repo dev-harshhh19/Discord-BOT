@@ -3,8 +3,6 @@
 # Optimized for 1 vCPU & 2GB RAM Cloud VPS (amd64 / arm64)
 # ==============================================================================
 
-version: '3.8'
-
 services:
   aternos-bot:
     build:
