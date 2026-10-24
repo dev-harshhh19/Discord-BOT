@@ -30,6 +30,8 @@ test-aternos.js
 aternos-dom.html
 1.1.0
 *.tmp
+*.zip
+*.tar.gz
 
 # OS metadata
 .DS_Store
